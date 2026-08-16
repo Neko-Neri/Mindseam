@@ -381,6 +381,29 @@ regression suite. Its maturity comes from repeated falsifiable testing and scope
 
 ---
 
+## Citation | 引用
+
+If you use this suite in your research or work, please cite it as:
+
+> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6*. https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6
+
+```bibtex
+@misc{jspace_suite_2026,
+  author       = {Tiger3807861189},
+  title        = {{J-Space} Cognition Suite V3.6},
+  year         = {2026},
+  version      = {3.6},
+  howpublished = {\url{https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6}},
+  note         = {Licensed under Apache License 2.0}
+}
+```
+
+Companion evaluation report: [DeepSeek V4 × J-Space Capability Realization Report](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report).
+
+本套件引用请注明上述出处。配套评测报告见 [DeepSeek V4 × J-Space 能力释放报告](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report)。
+
+---
+
 ## License | 开源协议
 
 J-Space Cognition Suite is released under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). It permits use, modification, redistribution, and commercial integration under its notice and patent terms. See [`LICENSE`](LICENSE) for the complete terms.
