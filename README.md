@@ -230,6 +230,10 @@ Maintainers can verify the complete controller lifecycle from the package root w
 
 ## Benchmarks | 基准测试
 
+> 📊 **Full evaluation report** — See [DeepSeek V4 × J-Space Capability Realization Report](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report) for the complete benchmark evidence, capability-realization analysis, and chain-of-thought diode discussion.
+>
+> 📊 **完整评测报告** — 完整 benchmark 证据、能力实现损失分析与思维链二极管讨论见 [DeepSeek V4 × J-Space 能力释放报告](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report)。
+
 All values use the native score of the corresponding benchmark; higher is better. `—` means that no result is reported. HLE is separated into no-tool and tool-enabled conditions.
 
 所有数值均采用对应 benchmark 的原生得分，数值越高越好。`—` 表示没有报告结果。HLE 分为无工具与启用工具两种条件。
