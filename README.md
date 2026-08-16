@@ -268,7 +268,7 @@ All values use the native score of the corresponding benchmark; higher is better
 
 Bold marks the highest reported score in each row. / 粗体表示该行已报告结果中的最高分。
 
-The performance of  DeepSeek V4-Flash-0731 + J-Space V3.6 is on par with GLM-5.3 and Kimi-K3, and surpasses Opus-4.8. 
+The performance of DeepSeek V4-Flash-0731 + J-Space V3.6 is on par with GLM-5.3 and Kimi-K3, and surpasses Opus-4.8. 
 
 DeepSeek V4-Flash-0731 + J-Space V3.6 的表现与智谱 5.3、Kimi K3 持平，并超越 Opus 4.8。
 
@@ -343,7 +343,7 @@ J-Space-Cognition-Suite-V3.6/
 
 The fundamental scientific foundation of J-Space is grounded in Anthropic's related research. J-Space is an engineering suite grounded in mechanistic observations and behavioral evaluation. It does not claim that text instructions directly expose every hidden activation, and it does not equate first-person language with consciousness. It uses observable functional properties — reportability, deliberate maintenance, intermediate computation, broadcast, monitoring, and causal sensitivity—as the basis of an inference-time control interface.
 
-J-Space 的最主基础科学依据是 Anthropic 的相关研究。J-Space 是一套建立在机制观察与行为评估之上的工程系统。它不主张文本指令能够直接暴露所有隐藏激活，也不把第一人称语言等同于意识。它以可报告性、主动保持、中间计算、广播、监控和因果敏感性等可观察功能属性为基础，构造推理时控制接口。
+J-Space 的最主要基础科学依据是 Anthropic 的相关研究。J-Space 是一套建立在机制观察与行为评估之上的工程系统。它不主张文本指令能够直接暴露所有隐藏激活，也不把第一人称语言等同于意识。它以可报告性、主动保持、中间计算、广播、监控和因果敏感性等可观察功能属性为基础，构造推理时控制接口。
 
 The complete research interpretation, evidence boundaries, and cited mechanisms are documented in [`j-space/references/j-space-science.md`](j-space/references/j-space-science.md).
 
