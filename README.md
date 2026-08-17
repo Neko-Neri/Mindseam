@@ -383,7 +383,7 @@ regression suite. Its maturity comes from repeated falsifiable testing and scope
 
 ## Citation | 引用
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21971182.svg)](https://doi.org/10.5281/zenodo.21971182)
+[![DOI](https://zenodo.org/badge/1308234922.svg)](https://zenodo.org/badge/latestdoi/1308234922)
 
 If you use this suite in your research or work, please cite it as:
 
