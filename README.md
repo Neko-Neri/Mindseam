@@ -31,6 +31,7 @@ J-Space 不是一个简单的 Skill，而是一套推理时认知控制系统；
 - [Scientific scope](#scientific-scope--科学边界)
 - [Design principle](#design-principle--设计原则)
 - [Update notes and version lineage](#update-notes-and-version-lineage--更新说明与版本轨迹)
+- [Citation](#citation--引用)
 - [License](#license--开源协议)
 
 ---
