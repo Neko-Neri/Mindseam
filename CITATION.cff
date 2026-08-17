@@ -3,7 +3,7 @@
 # Format: Citation File Format 1.2.0 (https://citation-file-format.github.io/)
 
 cff-version: 1.2.0
-message: "If you use this software in your research, please cite it as follows."
+message: "If you use J-Space in your research, please cite the accompanying paper (link to be added upon publication). For engineering use, cite this repository as follows."
 title: "J-Space Cognition Suite V3.6"
 authors:
   - family-names: "Tiger3807861189"
