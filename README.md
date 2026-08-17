@@ -386,21 +386,25 @@ regression suite. Its maturity comes from repeated falsifiable testing and scope
 
 [![DOI](https://zenodo.org/badge/1308234922.svg)](https://zenodo.org/badge/latestdoi/1308234922)
 
-If you use this suite in your research or work, please cite it as:
+If you use J-Space in your research, please cite the accompanying paper (link to be added upon publication). For engineering use, cite this repository as:
 
-> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6*. Zenodo. https://doi.org/10.5281/zenodo.21971181
+> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6* (Version 3.6). Zenodo. https://doi.org/10.5281/zenodo.21971181
 
 ```bibtex
-@misc{jspace_suite_2026,
+@software{j-space-cognition-suite,
   author       = {Tiger3807861189},
   title        = {{J-Space} Cognition Suite V3.6},
   year         = {2026},
   version      = {3.6},
   doi          = {10.5281/zenodo.21971181},
-  howpublished = {\url{https://doi.org/10.5281/zenodo.21971181}},
+  url          = {https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6},
   note         = {Licensed under Apache License 2.0}
 }
 ```
+
+The academic analysis will be presented in the accompanying paper. For engineering use, the repository and its DOI above are the canonical reference.
+
+若在研究中引用 J-Space，请引用随附论文（发表后补链）。工程使用请引用本仓库及其 DOI 如上。学术分析以正式论文为准。
 
 Companion evaluation report: [DeepSeek V4 × J-Space Capability Realization Report](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report).
 
