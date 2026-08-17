@@ -387,7 +387,7 @@ regression suite. Its maturity comes from repeated falsifiable testing and scope
 
 If you use this suite in your research or work, please cite it as:
 
-> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6*. Zenodo. https://doi.org/10.5281/zenodo.21971182
+> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6*. Zenodo. https://doi.org/10.5281/zenodo.21971181
 
 ```bibtex
 @misc{jspace_suite_2026,
@@ -395,8 +395,8 @@ If you use this suite in your research or work, please cite it as:
   title        = {{J-Space} Cognition Suite V3.6},
   year         = {2026},
   version      = {3.6},
-  doi          = {10.5281/zenodo.21971182},
-  howpublished = {\url{https://doi.org/10.5281/zenodo.21971182}},
+  doi          = {10.5281/zenodo.21971181},
+  howpublished = {\url{https://doi.org/10.5281/zenodo.21971181}},
   note         = {Licensed under Apache License 2.0}
 }
 ```
