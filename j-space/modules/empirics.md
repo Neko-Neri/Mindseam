@@ -25,13 +25,10 @@ inside, decodable on demand.
 
 ## Grounding
 
-- The whole manoeuvre appears in a frontier model's raw trace, in order. Drowning admitted:
-  *"I'M DROWNING — EMPIRICS!!! Let me define v1 conservatively…"* Unknown parametrized:
-  *"Let me parametrize: CHECK: max(used[window]) + take ≤ CAP with CAP ∈ {m−1, m−2} and
-  compare both against brute."* Method declared: *"I'M GOING TO TRUST-AND-VERIFY: implement
-  the greedy with rule […], WITHOUT explicit (b), and see if it matches brute force. If
-  mismatches appear, study them and refine."* Closure planned: *"After exploration, write
-  final sol.cpp + a slow-reference cpp."*
+- The suite-authored normalized rehearsal carries the whole manoeuvre in order: admit
+  `I'M DROWNING — EMPIRICS!!!`; define the uncertain parameter conservatively; compare each
+  candidate rule against an independent reference; study any mismatch; then write the final
+  artifact with its slow reference. Each state change binds directly to the next action.
 - Externalization is what makes this work. Written chains survive workspace ablation because
   the page carries what the silent track cannot. The interpreter carries even more: it does
   not merely remember your reasoning, it can contradict it.
