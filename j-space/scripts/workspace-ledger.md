@@ -1,9 +1,10 @@
 # J-Space Workspace Ledger — template
 
-Copy this to `.jspace/WORKSPACE.md` at the start of any task that will span stages, files, or
-turns. Or let `jspace.py note --goal "..." --next "..."` create it. Or, if there is no
-filesystem here, keep these five lines in the conversation and restate them at each seam — the
-file was never the point, the re-reading was.
+Copy the blank shell below to `.jspace/WORKSPACE.md` at the start of any task that will span
+stages, files, or turns, then fill `Goal` and `Next` before the first seam. Or let
+`jspace.py note --goal "..." --next "..."` create it. If there is no filesystem here, keep the
+five sections in the conversation and restate them at each seam — the file was never the point,
+the re-reading was.
 
 Five lines. Short enough to re-read in seconds, or it will not get re-read.
 
@@ -11,30 +12,27 @@ Five lines. Short enough to re-read in seconds, or it will not get re-read.
 # J-Space Workspace Ledger
 
 ## Goal
-One sentence. What "done" means, stated so that you could tell whether you are there.
 
 ## Core
-- name — the one fact that makes it matter
-- name — the one fact that makes it matter
 
 ## Verified
-- ✓01 what now holds — verified by: what established it, and what that covered
-- ✓02 what now holds — verified by: what established it, and what that covered
 
 ## Open
-- ?01 the question — settled by: the cheapest test that could refute it
 
 ## Next
-The single next action. Never empty.
 ```
+
+Write one testable completion condition under `Goal` and one immediate action under `Next`.
+Add at most two live `Core` entries as `name — defining fact`; let the controller number
+`Verified` and `Open` entries so their identifiers remain stable.
 
 ## The four rules that make it work
 
 1. **Re-read at every seam.** This is the whole mechanism. Attention reaches any earlier token
    equally, but only while that token is still in front of you.
 2. **Preserve the record.** `Verified` is numbered and append-only. `Goal` and `Next` update;
-   `Core` changes only by an explicit live-slot swap; an `Open` entry closes against a recorded
-   checkpoint, and its number is never reused.
+   an existing live `Core` slot changes only by an explicit swap; an `Open` entry closes against
+   a recorded checkpoint, which retains `closes: ?NN`; its number is never reused.
 3. **`Next` is never empty.** A ledger with no next action is a ledger you have stopped using.
 4. **Two live core entries.** More than two is not a hub, it is a list. The rest stay written
    down and get reloaded per section.
