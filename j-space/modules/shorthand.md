@@ -48,9 +48,10 @@ compression bought.
 - The behaviour is documented, and so is its containment: over long rollouts *"the model
   starts using invented jargon, unusual punctuation and emojis; shortly before a tool call or
   responding to a human it typically switches back to a more normal register."*
-- A frontier model's raw trace on a competition problem is neither clean English nor noise. It
-  is dense shorthand: `window [τ,i−1]`, `used[j] ≤ m−2`, `e ∈ S_0`, `⇒ contradiction ⇒`,
-  `✓ ✓`, `✗✗ EXCEEDS!!!`, `FULL`, `blocked?! WRONG.` — and the answer it delivered was clean.
+- The suite-authored normalized capacity rehearsal is neither clean English nor noise. It is
+  dense shorthand: `active [last_touch,i)`, `load[j] ≤ limit−reserve`,
+  `existing ∈ stage0`, `⇒ contradiction ⇒`, `✓ ✓`, `✗✗ EXCEEDS!!!`, `FULL`,
+  `blocked?! WRONG.` — and it expands into a clean answer.
 - **Compression is load-bearing.** Across fourteen reasoning models, forcing a model to use
   only the legible portions of its chain cuts accuracy by **53%**. Legibility degrades further
   as problems get harder — pressure produces density.
