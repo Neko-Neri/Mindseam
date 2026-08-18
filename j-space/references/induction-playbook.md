@@ -102,17 +102,19 @@ Canonical anchors (rotate two or three per induction):
 
 Dense-track anchors (rotate one in when the induction covers compression):
 
-- **The competition trace.** A frontier model solving a hard problem thinks in dense shorthand
-  — `used[j] ≤ m−2`, `window [τ,i−1]`, `blocked?! WRONG.` — and its final answer stays clean.
-  The workspace has a native compressed register.
-- **Haiku decodes the card puzzle.** A much smaller model, different tokenizer, reconstructed
-  the full logic of an "illegible" trace without prompting. Dense is decodable; decodable is
-  honest.
-- **The 53% result.** Forcing a reasoning model to use only the legible parts of its chain cuts
-  accuracy by 53%. The compressed parts carry real reasoning.
-- **Stop. Focus.** A trace collapses into repeated dots, then recovers: "Stop. Focus. … Return
-  to step by step. Detailed Implementation Plan: Step 1…". Degeneration is self-detectable and
-  recovery is a written sequence.
+- **The normalized capacity rehearsal.** The suite compresses a hard constraint chain as
+  `load[j] ≤ limit−reserve`, `active [last_touch,i)`, `blocked?! WRONG.` and then returns to a
+  clean answer. The sourced records motivate the pattern; the rehearsal makes it operable.
+- **Haiku decodes the card puzzle.** In the linked [decoding
+  analysis](https://www.lesswrong.com/posts/wCSEpT3dTGz4N86Wi/even-illegible-mythos-reasoning-traces-seem-pretty-legible),
+  a much smaller model with a different tokenizer reconstructed the full logic of an
+  "illegible" trace without prompting. Dense is decodable; decodable is honest.
+- **The 53% result.** A [14-model study](https://arxiv.org/abs/2510.27338) reports that forcing a
+  reasoning model to use only the legible parts of its chain cuts accuracy by 53%. The
+  compressed parts carry real reasoning.
+- **Stop. Focus.** The [METR report](https://metr.org/evaluations/gpt-5-report/) records a trace
+  collapsing into repeated dots, then recovering through stop-and-focus commands and a fresh
+  stepwise plan. Degeneration is self-detectable and recovery is a written sequence.
 
 ## Technique 4 — Priming and Spaced Repetition
 
