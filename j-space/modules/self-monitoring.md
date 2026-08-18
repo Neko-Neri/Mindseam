@@ -56,12 +56,11 @@ inside, decodable on demand.
   trust, when to retry with compact feedback, when to try again differently and reconcile —
   raised pooled accuracy on a fixed model from **48.3 to 56.9**, with no parameter updates and
   no benchmark-specific tuning. **You already have the signal. The gain is in the wiring.**
-- **Degeneration is self-detectable, and recovery is a written-down sequence.** A frontier
-  trace collapses into screens of repeated dots, then, verbatim: *"Stop. / Focus. / We just
-  need to fix the bug 'module not found' and propose improvement to training. We'll write code
-  accordingly."* — and later, after a second collapse: *"Stop. / I see meltdown. / Ok. / Return
-  to step by step. / Detailed Implementation Plan: - Step 1: Setup stable environment"*. Notice
-  how it ends. Not by resuming. By writing a fresh plan and starting at Step 1.
+- **Degeneration is self-detectable, and recovery is a written-down sequence.** The METR trace
+  summarized in [`j-space-science.md`](../references/j-space-science.md) collapses into repeated
+  punctuation, interrupts itself, restores focus, restates the immediate bug, and later responds
+  to a second collapse by writing a fresh stepwise plan. Notice how it ends: not by resuming
+  mid-loop, but by rebuilding the control state and starting from the first action.
 - **Agents systematically overestimate completion.** Long-horizon studies find many early exits
   at high but sub-threshold reward — agents insufficiently verify that the task was actually
   satisfied. Declaring done is a judgement, and it is a judgement that runs optimistic.
