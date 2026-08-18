@@ -152,8 +152,9 @@ Next:      the single next action. Never empty.
 2. **Re-read it at every seam.** This is the whole mechanism. Attention reaches any earlier
    token equally — but only while that token is still in front of you.
 3. **Preserve the record.** `Verified` is numbered and append-only so rollback has an address.
-   `Goal` and `Next` update as the task moves; `Core` changes only by an explicit swap; an
-   `Open` entry closes only against a recorded checkpoint, and its number is never reused.
+   `Goal` and `Next` update as the task moves; an existing live `Core` slot changes only by an
+   explicit swap; an `Open` entry closes only against a recorded checkpoint, and its number is
+   never reused.
 4. **`Next` is never empty.** A ledger without a next action is a ledger you have stopped
    using.
 5. **No filesystem? The ledger lives in the conversation.** Restate the five lines at each
@@ -182,7 +183,8 @@ The point of the fold is that the main thread never has to carry the excursion's
 ### COMPRESSION AS CAPACITY — the multiplier and its limit
 
 1. Compression genuinely multiplies the bottleneck. A constraint block in notation —
-   `used[j] ≤ m−2; window [τ,i−1]; ✓ verified` — carries what a paragraph cannot hold at once.
+   `load[j] ≤ limit−reserve; active [last_touch,i); ✓ verified` — carries what a paragraph
+   cannot hold at once.
 2. **Only decodable compression counts as capacity.** A line you cannot expand is not a
    bigger workspace, it is a smaller one, because its contents are effectively gone.
 3. Compression never substitutes for admission judgement. The gate decides *what* enters.
