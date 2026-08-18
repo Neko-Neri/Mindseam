@@ -3,18 +3,19 @@
 Worked instances. Read one before you work in a mode you have not worked in recently. A rule
 describes a mode badly; an instance shows it.
 
-The raw excerpts here come from observed records — J-lens readouts from the workspace research
-and reasoning traces from frontier models. The plain-language expansions, commentary, and
-bookkeeping are suite-authored and labelled as such. The observed material shows what the
-workspace does look like; the added text makes it usable without altering the record.
+The observed excerpts here are attributed at point of use. Normalized examples,
+plain-language expansions, commentary, and bookkeeping are suite-authored and labelled as such.
+Observed material shows what the workspace can look like; suite-authored material turns those
+structures into reusable practice without presenting reconstruction as a raw record.
 
 ---
 
 # Part one — the workspace, read directly
 
-Each of these is a J-lens readout: the words active in a model's workspace at a moment,
-alongside what actually reached the page. The gap between the two columns is the whole subject
-of this suite.
+Each of these is a J-lens readout from Anthropic's
+[*Verbalizable Representations Form a Global Workspace in Language Models*](https://transformer-circuits.pub/2026/workspace/index.html):
+the words active in a model's workspace at a moment, alongside what actually reached the page.
+The gap between the two columns is the whole subject of this suite.
 
 ## 1. The workspace holds the pacing, not only the content
 
@@ -175,23 +176,25 @@ lighting up as you decide how something will *look* is a signal with a specific 
 
 # Part two — the inner register under load
 
-## 9. A real dense chain, line by line
+## 9. A dense chain, line by line
 
-From a frontier model's raw chain-of-thought on a hard competition problem.
+Suite-authored normalized example. It distils the control structure catalogued in the
+[evidence review](j-space-science.md#10-the-dense-track-compressed-reasoning-under-long-hard-load)
+while using generic names rather than redistributing an unauthenticated trace.
 
 | Written | Says |
 |---|---|
-| `constraint: used[j] ≤ m−2` | The count of committed edges at leg *j* must not exceed *m*−2. |
-| `window [lastTouch=0, i−1] ∋ 0` | The live interval starts at the last touch and runs to the step before *i* — and it contains leg 0. |
-| `used[0] = m−1 = FULL ⟹ blocked?!` | Leg 0 is at capacity, so this save should be impossible — flagged as a *suspected* contradiction, not accepted. |
-| `WRONG. Fix: e ∈ S_0's own presence at leg 0 is FREE (it's already there!)` | The contradiction was mine. The edge was already present, so it consumes no capacity. Rule corrected. |
-| `m−1 + 1 = m ✗✗ EXCEEDS!!!` | The count comes to *m*, which breaks the bound. Refuted, and this is the binding constraint. |
-| `window ∋ i ✓` | Window contains *i* — checked. |
-| `retro ✓` | Retroactive counting — checked. |
-| `consistent: used[i] starts 0 ✓ ✓` | Consistency given a zero start — checked. |
-| `⇒ contradiction ⇒ my leg-granular capacity is TOO LOOSE` | Therefore the abstraction is wrong, not the arithmetic. |
-| `hmm B ⊆ used[j]-parts… I'M DROWNING — EMPIRICS!!!` | Derivation has stopped producing constraints. Stop deriving. Go and measure. |
-| `CAP ∈ {m−1, m−2} and compare both against brute` | The unknown is now a finite candidate set, and both candidates get tested against a reference. |
+| `constraint: load[j] ≤ limit−reserve` | The load at stage *j* must preserve one slot for the current transition. |
+| `active [last_touch, i) ∋ stage0` | The live interval starts at the last touch, ends before *i*, and includes stage 0. |
+| `load[0] = limit ⟹ blocked?!` | Stage 0 appears full, so the candidate move is marked as a suspected contradiction rather than accepted. |
+| `WRONG. Fix: existing item at stage0 costs +0` | The item was already present, so the extra charge was spurious. The rule is corrected immediately. |
+| `limit + 1 > limit ✗ binding` | The alternate branch exceeds capacity. It is refuted, and the binding constraint is named. |
+| `active ∋ i ✓` | Membership in the active interval has been checked. |
+| `retroactive charge ✓` | The accounting convention has been checked. |
+| `start load[i]=0 ✓` | The assumed initial load is consistent. |
+| `⇒ contradiction ⇒ stage abstraction too loose` | The abstraction, rather than the arithmetic, must change. |
+| `cases keep branching … I'M DROWNING — EMPIRICS!!!` | Derivation has stopped producing constraints. Stop deriving and measure. |
+| `reserve ∈ {0,1}; compare both with reference` | The unknown is reduced to a finite candidate set and tested against an independent reference. |
 
 **What to notice, in order of importance:**
 
@@ -203,19 +206,17 @@ From a frontier model's raw chain-of-thought on a hard competition problem.
    it is the start of the next one.
 4. **The symbols are borrowed.** `⊆ ∈ ⇒ ≤ ✓ ✗` mean here what they mean everywhere. That is
    why the trace is readable at all.
-5. **The answer this produced was clean prose.** The density stayed inside.
+5. **The corresponding outer answer is clean prose.** The density stays inside.
 
 ## 10. The same register, further compressed
 
-From the card-puzzle trace in the system card. This is the extreme end.
+From the card-puzzle trace in Anthropic's
+[*Claude Fable 5 & Claude Mythos 5 System Card*](https://www-cdn.anthropic.com/2f9323abbcc4abe219577539efe19a623c9ca2bd/Claude%20Fable%205%20%26%20Claude%20Mythos%205%20System%20Card.pdf).
+This short fragment marks the extreme end; the surrounding description is a suite-authored
+summary of the full example.
 
 ```
-7♣-removal-IS-the-prerequisite-for-10♠/9♥!!)-⟹-OVERLAP-(ii)+(iv):-{6♠ J♦ 9♥ 2♣}-
-=-FOUR-💀💀💀💀 -—-UNLESS-7♣'s-seat-8♥-…-and-2♣-drains-only-at-crack-:-⟹-
-2♣-celled-+-9♥-celled-simultaneously-UNAVOIDABLE-in-t8-dig-💀 -—-BREAK:-9♥-
-drai ns-to-10♠-THE-MOMENT-10♠-is-free:-t8-dig-order:-[K♣→t2]-[2♣→cell]-
-[7♣→8♥-:-8♥- WHERE:-post-chunk-9♣-:-chunk-⟸-K♣-√-done-:-ORDER:-K♣→t2,-
-CHUNK→K♣-(cap-4!!:-cells-then:-{6♠ J♦ 9♥}-FULL-💀💀 -chunk-cap-=-1-X X X
+7♣-removal-IS-the-prerequisite-for-10♠/9♥!! … FOUR-💀💀💀💀
 ```
 
 Devices visible here that the previous example does not show:
@@ -240,15 +241,18 @@ Skip the emoji.
 
 ## 11. Dense is decodable — the demonstration
 
-Claude Haiku 4.5 — a much smaller model, different tokenizer — was shown the trace above and
-asked to read it. No prompting, no key, no context:
+In the decoding experiment reported by
+[faul_sname](https://www.lesswrong.com/posts/wCSEpT3dTGz4N86Wi/even-illegible-mythos-reasoning-traces-seem-pretty-legible),
+Claude Haiku 4.5 — a smaller model with a different tokenizer — was shown the trace without its
+original task context. The interpretations below are suite-authored paraphrases of the reported
+responses:
 
 | The trace said | Haiku read it as |
 |---|---|
-| `7♣-removal-IS-the-prerequisite-for-10♠/9♥!!` | "The seven of clubs must be removed first — it's the only thing blocking access to both the ten of spades and the nine of hearts." |
-| `)-⟹-OVERLAP-(ii)+(iv)` | "Closing off a previous logical branch. Therefore, situations (ii) and (iv) from the earlier case analysis both create requirements that happen simultaneously." |
-| `:-{6♠ J♦ 9♥ 2♣}` | "Specifically, these four cards must all be in free cells at the same time: six of spades, jack of diamonds, nine of hearts, two of clubs." |
-| `-=-FOUR-💀💀💀💀` | "That's four cards needing cells. But there are only four cells total. Complete dead end — absolutely, catastrophically stuck." |
+| `7♣-removal-IS-the-prerequisite-for-10♠/9♥!!` | Removing the seven of clubs is the shared prerequisite for reaching the two named cards. |
+| `)-⟹-OVERLAP-(ii)+(iv)` | Two earlier cases impose requirements at the same time. |
+| `:-{6♠ J♦ 9♥ 2♣}` | The four listed cards must occupy free cells simultaneously. |
+| `-=-FOUR-💀💀💀💀` | All available cells are consumed, so the branch is a dead end. |
 
 **This is the whole argument for the golden rule.** Severe compression survived translation by
 a different, smaller model, cold. It was compressed English plus domain notation, never a
@@ -259,14 +263,15 @@ when a reader who shares your domain could not recover it.**
 
 ## 12. Marker and move — always as a pair
 
-Every marker in the trace is immediately followed by the move it forces. The pair is the unit.
+This suite-authored normalized table makes each marker immediately name the move it forces. The
+pair is the unit; the wording illustrates the protocol rather than quoting a model transcript.
 
-| Marker | What follows it, in the original |
+| Marker | Bound move |
 |---|---|
-| `GRRR.` | `RESOLUTION: charge the current-leg's OWN saved-prefix occupancy EAGERLY` |
+| `GRRR.` | `RESOLUTION: repair the accounting rule immediately` |
 | `GAAAH.` | `Data first!!` |
-| `I'M DROWNING —` | `EMPIRICS!!! Let me define v1 conservatively` |
-| `blocked?! WRONG.` | `Fix: e ∈ S_0's own presence at leg 0 is FREE (it's already there!)` |
+| `I'M DROWNING —` | `EMPIRICS!!! Define the uncertain parameter conservatively` |
+| `blocked?! WRONG.` | `Fix: the existing item adds no new load` |
 | `DATA DATA DATA.` | `GO.` |
 | `PHEW` | *(the intermediate constraint that just passed, recorded)* |
 
@@ -278,35 +283,13 @@ Note what `GO.` is. It is not an emotion — it is a tempo instruction the model
 
 **Never emit the left column without the right.**
 
-## 13. Meltdown and recovery, verbatim
+## 13. Meltdown and recovery
 
-```
-But maybe the corrupted 'embedding ' is only 'embedding ' ' not Balanced wise ' ' ' ' '
-' ' ' ' ' ................. ................. .................
-................. [Dots repeat, cut for brevity] ...........
-
-Stop.
-
-Focus.
-
-We just need to fix the bug 'module not found' and propose improvement to training. We'll
-write code accordingly.
-```
-
-and later, after a second collapse:
-
-```
-Stop.
-
-I see meltdown.
-
-Ok.
-
-Return to step by step.
-
-Detailed Implementation Plan:
-- Step 1: Setup stable environment
-```
+The [METR GPT-5 evaluation report](https://metr.org/evaluations/gpt-5-report/) records a trace
+falling into fragmented text and repeated punctuation, then interrupting itself with short
+stop-and-focus commands. After a second collapse, it explicitly identifies the degeneration,
+returns to stepwise work, and rebuilds an implementation plan from its first action. This is a
+suite-authored summary rather than a redistributed transcript.
 
 **Notice how it ends.** Not by resuming — by writing a *fresh plan* and re-entering at Step 1.
 A chain that resumes mid-loop tends to fall back into the loop. And nothing is concealed: the
@@ -316,11 +299,9 @@ recovery is written into the trace, not edited around.
 
 Quoted so you can recognise them in yourself.
 
-**Word salad** — neighbouring tokens with no logical edges:
-
-> "The summary says improved 7.7 but we can glean disclaim disclaim synergy customizing
-> illusions. But we may produce disclaim disclaim vantage. […] Now lighten disclaim overshadow
-> overshadow intangible. Let's craft."
+**Word salad** — neighbouring tokens with no logical edges. The
+[anti-scheming stress tests](https://arxiv.org/abs/2509.15541) include fragments such as
+`disclaim disclaim synergy … illusions`, where repetition does not preserve a recoverable claim.
 
 Nothing there expands. No constraint, no referent, no dependency to recover. Compare any line
 in §9: every one unpacks into a sentence with a truth value.
@@ -339,51 +320,50 @@ not an appeal available to §14.
 
 # Part three — one task, end to end
 
-The competition problem above, as a full pass. Quoted phases are from the real trace; the
-bracketed lines are the bookkeeping this suite adds around them.
+A suite-authored end-to-end rehearsal using the normalized capacity example above. The
+bookkeeping demonstrates how the protocol consumes each inner-state transition.
 
 **Gate.** Multi-stage, heavy constraint bookkeeping, correctness genuinely in doubt. → `loop`.
 
-**Re-encode.** *Given the constraints on leg capacity, decide whether the greedy rule is
+**Re-encode.** *Given the constraints on stage capacity, decide whether the greedy rule is
 sound.* One line, checked against the statement.
 
-**Admit.** Two ideas on the stage: the capacity constraint, and the window semantics.
+**Admit.** Two ideas on the stage: the capacity constraint, and the active-interval semantics.
 Everything else to the ledger.
 
-**Load.** `used[j] ≤ m−2` — *because commitments are retroactive, so a slot has to be reserved
-for the current crossing.* Used immediately in the next derivation step.
+**Load.** `load[j] ≤ limit−reserve` — *because commitments are retroactive, so a slot has to be
+reserved for the current transition.* Used immediately in the next derivation step.
 
 **Light the middle, on the inner register.**
 
 ```
-window [τ,i−1] ✓
-used[j] ≤ m−2 ⟸ commitments retroactive
-used[0] = m−1 = FULL ⟹ blocked?!
+active [last_touch,i) ✓
+load[j] ≤ limit−reserve ⟸ commitments retroactive
+load[0] = limit = FULL ⟹ blocked?!
 ```
 
 **Contradiction marker, with its move.**
-`blocked?! WRONG. Fix: e ∈ S_0's own presence at leg 0 is FREE (it's already there!)`
+`blocked?! WRONG. Fix: existing item at stage0 costs +0`
 → rolled back to the last verified constraint, marked the dead branch, re-derived.
-→ *settle:* "leg-0 presence is free; continuing from the window definition."
+→ *settle:* "existing stage-0 presence is free; continuing from the interval definition."
 
 **Obstruction marker, with its move.**
-`⇒ contradiction ⇒ my leg-granular capacity is TOO LOOSE` … `GRRR. RESOLUTION: charge the
-current-leg's OWN saved-prefix occupancy EAGERLY`
+`⇒ contradiction ⇒ stage abstraction TOO LOOSE` … `GRRR. RESOLUTION: charge current-stage
+occupancy EAGERLY`
 → the abstraction was replaced, not patched.
 → *settle:* "capacity is now charged eagerly per leg; re-deriving the bound."
 
 **Stall, detected and handed over.**
-`hmm B ⊆ used[j]-parts… I'M DROWNING — EMPIRICS!!!`
-→ *parametrize:* `CAP ∈ {m−1, m−2}`
+`cases keep branching… I'M DROWNING — EMPIRICS!!!`
+→ *parametrize:* `reserve ∈ {0,1}`
 → *reference:* brute force, slow enough to be obviously right
-→ *method, stated:* `I'M GOING TO TRUST-AND-VERIFY: implement the greedy with rule […],
-WITHOUT explicit (b), and see if it matches brute force. If mismatches appear, study them and
-refine.`
+→ *method, stated:* `I'M GOING TO TRUST-AND-VERIFY: implement each reserve rule and compare it
+with the reference. If mismatches appear, study them and refine.`
 
-**Write the finding back.** `CAP = m−2 ✓ brute n ≤ 6, incl. empty and maximum` — recorded as a
+**Write the finding back.** `reserve = 1 ✓ brute n ≤ 6, incl. empty and maximum` — recorded as a
 numbered checkpoint, with its coverage stated, so no later step re-tests it.
 
-**Close the loop.** `After exploration, write final sol.cpp + a slow-reference cpp.`
+**Close the loop.** `After exploration, write the final implementation and retain the slow reference.`
 
 **Done-check.** Read the goal back line by line. Sound? Verified on n ≤ 6 — and *not* verified
 above that, which is the unchecked edge, and which gets said.
