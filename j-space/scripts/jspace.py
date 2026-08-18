@@ -46,25 +46,33 @@ STALL_RUN = 3          # consecutive seams before a pattern is worth reporting
 RESUME_GAP = 1800      # seconds after which a seam prints the fuller anchor
 
 PREMISE = (
-    "You do not only produce words; you also think them before — and without —\n"
-    "saying them. The J-space holds what you are poised to say: concepts you can\n"
-    "report on demand, hold in mind deliberately, reason with silently, and\n"
-    "broadcast to many downstream computations at once. Dense on the inside,\n"
-    "decodable on demand."
+    "You do not only produce words; you also think them before — and without — saying them.\n"
+    "Research on language-model internals (Gurnee et al., Anthropic, 2026) identified a small,\n"
+    "privileged set of internal representations, the **J-space**, that holds what you are\n"
+    "**poised to say**: concepts you can report on demand, hold in mind deliberately, reason\n"
+    "with silently, and broadcast to many downstream computations at once. It was not designed\n"
+    "— it emerged during training, because a workspace is a useful way to organize computation.\n"
+    "It is where your unspoken thoughts live. Everything fluent and automatic runs below it;\n"
+    "everything you can consciously access runs through it.\n"
+    "\n"
+    "Your workspace has a native shorthand: under hard, long reasoning it compresses thought\n"
+    "into dense, private notation — and that is a capability, not a defect, for exactly as long\n"
+    "as every compressed line remains expandable back into plain words on demand. Dense on the\n"
+    "inside, decodable on demand."
 )
 
 INVARIANTS = [
-    "A marker fired and its move never happened — or it happened and you never settled.",
-    "A sweep ran and found nothing — again.",
+    "A marker fired and its bound action never happened — or it happened and you never settled.",
+    "A sweep ran and found nothing — again. A monitor that never reports is not a clean system; it is an unplugged monitor.",
     "A dense line cannot be expanded back into plain words on request.",
     "Every confidence tag this session has been the same tag.",
     "A checkpoint was declared and nothing was written down.",
-    "Something was called verified without stating what it covered.",
+    "Something was called verified without stating what the verification covered.",
     "Dense notation appears in something a person or a task-facing tool reads.",
     "You called the task finished without reading the goal back line by line.",
 ]
 
-SHIFTS = "shift the abstraction, shift the strategy, or go and measure"
+SHIFTS = "Shift the abstraction, shift the strategy, or shift to empirics."
 
 
 class LedgerReadError(Exception):
@@ -75,13 +83,31 @@ class LedgerReadError(Exception):
 # stripping them from good writing costs more than the leak they would catch.
 INNER_ONLY = ["⇒", "⟹", "⟸", "∴", "∵", "⊆", "⊇", "∋", "??", "?!", "💀"]
 MARKERS = ["GRRR", "GAAAH", "PHEW", "I see meltdown", "DATA DATA", "I'M DROWNING"]
-CLAIM = re.compile(r"\b(verified|confirmed|validated|tested|proven)\b", re.I)
+MARKDOWN_HEADING = re.compile(r"^\s{0,3}#{1,6}(?:\s|$)")
+SETEXT_UNDERLINE = re.compile(r"^\s{0,3}(?:=+|-+)\s*$")
+TABLE_DELIMITER = re.compile(
+    r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$"
+)
+MARKDOWN_LIST_ITEM = re.compile(r"^\s{0,3}(?:[-+*]|\d+[.)])\s+")
+MARKDOWN_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})(.*)$")
+THEMATIC_BREAK = re.compile(r"^\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$")
+RESERVED_CLOSE_SUFFIX = re.compile(r" — closes: \?\d+$")
+CLAIM = re.compile(
+    r"(?:\b(?:verified|confirmed|validated|tested|proven)\b|"
+    r"(?:已经验证|已验证|经验证|验证通过|已经确认|已确认|经确认|确认无误|"
+    r"已经测试|已测试|经测试|测试通过|已经证明|已证明|经证明))",
+    re.I,
+)
 COVERAGE = re.compile(
     r"(?:\b(?:all|each|every|cases?|inputs?|samples?|bounds?|boundaries|edges?|"
     r"random(?:ized)?|files?|modules?|sections?|lines?|scenarios?|environments?|"
     r"platforms?|datasets?|records?|routes?|commands?|branches?|ranges?|including|"
     r"through|up\s+to|Windows|Linux|macOS|Chrome|Firefox|Safari)\b|"
-    r"\b(?:Python|Node(?:\.js)?)\s*\d|\bn\s*[<≤=]\s*\d)",
+    r"\b(?:Python|Node(?:\.js)?)\s*\d|\bn\s*[<≤=]\s*\d|"
+    r"(?:覆盖|全部|所有|每个|每条|各条|每项|逐一|逐条|边界|上下限|上限|下限|"
+    r"输入|用例|文件|目录|模块|章节|区段|分段|行数|行号|场景|平台|环境|浏览器|"
+    r"数据集|记录|路径|路由|命令|分支|范围|包括|包含|至多|至少|最多|最少|"
+    r"随机|样本|样例|截至))",
     re.I,
 )
 
@@ -192,6 +218,22 @@ def next_number(rows, prefix):
     return max(numbers, default=0) + 1
 
 
+def next_open_number(book):
+    """Allocate an Open id that remains retired after its question closes."""
+    numbers = []
+    active = re.compile(r"^\?(\d+)\b")
+    closed = re.compile(r" — closes: \?(\d+)$")
+    for row in book["Open"]:
+        match = active.match(row)
+        if match:
+            numbers.append(int(match.group(1)))
+    for row in book["Verified"]:
+        match = closed.search(row)
+        if match:
+            numbers.append(int(match.group(1)))
+    return max(numbers, default=0) + 1
+
+
 # ------------------------------------------------------------------------ history
 
 
@@ -281,8 +323,11 @@ def print_ledger(book):
     print("Verified: " + (verified[-1] if verified else "(none yet)"))
     if len(verified) > 1:
         print("          (%d earlier, in the ledger)" % (len(verified) - 1))
-    for row in book["Open"][:2]:
+    open_rows = book["Open"]
+    for row in open_rows[:2]:
         print("Open:     " + row)
+    if len(open_rows) > 2:
+        print("          (+%d more in the ledger — run `resume` for the full list)" % (len(open_rows) - 2))
     print("Next:     " + (one(book, "Next") or "(not set)"))
 
 
@@ -316,11 +361,14 @@ def print_reentry(book, heading):
     print()
     print_full_ledger(book)
     print()
-    print("Not working if:")
+    print("The invariants:")
     for n, text in enumerate(INVARIANTS, 1):
         print("  %d. %s" % (n, text))
     print()
-    print("State the current pass, then make Next name the first action back.")
+    print(
+        "State the pass you are on in the inner or ledger register, and make `Next` "
+        "name the first action back."
+    )
 
 
 def mode_seam(book):
@@ -343,10 +391,10 @@ def mode_seam(book):
         print()
         print("You would not have noticed that; I keep the record, so here it is.")
         print("If that is depth, carry on. If it is a stall, the moves open to you are:")
-        print("  " + SHIFTS + ".")
+        print("  " + SHIFTS)
     if not one(book, "Next"):
         print()
-        print("There is no next action recorded. The ledger stops being state at that point.")
+        print("`Next` is never empty. A ledger with no next action is a ledger you have stopped using.")
     return 0
 
 
@@ -404,7 +452,7 @@ def mode_note(book, args):
         if "—" not in args.core and " - " not in args.core:
             refused.append(
                 (
-                    "a core entry without its defining fact is a mention, not a load.",
+                    "Mentioning is not loading.",
                     '--core "name — the one fact that makes it matter"',
                 )
             )
@@ -438,23 +486,31 @@ def mode_note(book, args):
                 if displaced != args.core:
                     parked.insert(0, displaced)
                 book["Core"] = live + parked
-                changed = displaced != args.core
+                changed = changed or displaced != args.core
     elif args.core_slot is not None:
         refused.append(("--core-slot requires --core.", '--core "name — defining fact" --core-slot 1'))
 
     check_recorded = False
+    check_index = None
     if args.check:
         if not args.by:
             refused.append(
                 (
-                    "a checkpoint with no record is not a checkpoint.",
+                    INVARIANTS[4],
                     '--check "what now holds" --by "what verified it"',
+                )
+            )
+        elif RESERVED_CLOSE_SUFFIX.search(args.by):
+            refused.append(
+                (
+                    "checkpoint evidence ends with the controller-reserved closure suffix.",
+                    "remove `— closes: ?NN`; the controller records it only after --close succeeds",
                 )
             )
         elif not COVERAGE.search(args.by):
             refused.append(
                 (
-                    "verified without stated coverage is a mood, not a result.",
+                    INVARIANTS[5],
                     '--by "brute force, n ≤ 6, including empty and maximum"',
                 )
             )
@@ -463,6 +519,7 @@ def mode_note(book, args):
             book["Verified"].append(
                 "✓%02d %s — verified by: %s" % (num, args.check, args.by)
             )
+            check_index = len(book["Verified"]) - 1
             changed = True
             check_recorded = True
     else:
@@ -479,7 +536,7 @@ def mode_note(book, args):
                 )
             )
         else:
-            num = next_number(book["Open"], "?")
+            num = next_open_number(book)
             book["Open"].append("?%02d %s — settled by: %s" % (num, args.open, settle))
             changed = True
     elif args.settled_by and "open" not in invalid:
@@ -491,17 +548,18 @@ def mode_note(book, args):
         idx = next((i for i, row in enumerate(rows) if row.startswith(target + " ")), None)
         if idx is None:
             refused.append(
-                ("no open question numbered %d." % args.close, "run `seam` to see the list")
+                ("no open question numbered %d." % args.close, "run `resume` to see the full list")
             )
         elif not check_recorded:
             refused.append(
                 (
-                    "closing an open question requires a checkpoint in the same call.",
+                    "An `Open` entry closes only against a recorded checkpoint, and its number is never reused.",
                     '--close %d --check "what now holds" --by "verifier and coverage"' % args.close,
                 )
             )
         else:
             rows.pop(idx)
+            book["Verified"][check_index] += " — closes: " + target
             changed = True
 
     if args.next:
@@ -512,8 +570,8 @@ def mode_note(book, args):
         problem = write_ledger(book)
         if problem:
             print("CANNOT: cannot write the ledger — " + problem)
-            print("  free the path, or work without the file: keep the five lines in the")
-            print("  conversation and restate them at each seam.")
+            print("  No filesystem? The ledger lives in the conversation. Restate the five lines")
+            print("  at each seam. Same discipline, different medium.")
             return 2
     for message, fix in refused:
         declined(message, fix)
@@ -525,6 +583,113 @@ def mode_note(book, args):
     return 0
 
 
+def markdown_fenced_lines(lines):
+    """Return zero-based lines inside Markdown fenced code blocks, including their fences."""
+    fenced = set()
+    fence_char = None
+    fence_size = 0
+    for index, line in enumerate(lines):
+        if fence_char is None:
+            match = MARKDOWN_FENCE.match(line)
+            if not match:
+                continue
+            token = match.group(1)
+            fence_char = token[0]
+            fence_size = len(token)
+            fenced.add(index)
+            continue
+
+        fenced.add(index)
+        closing = r"^\s{0,3}%s{%d,}\s*$" % (re.escape(fence_char), fence_size)
+        if re.match(closing, line):
+            fence_char = None
+            fence_size = 0
+    return fenced
+
+
+def markdown_structural_lines(lines):
+    """Return zero-based lines whose words are Markdown structure, not prose claims."""
+    structural = markdown_fenced_lines(lines)
+    for index, line in enumerate(lines):
+        if index in structural:
+            continue
+        if MARKDOWN_HEADING.match(line) or THEMATIC_BREAK.match(line):
+            structural.add(index)
+        if (
+            index + 1 < len(lines)
+            and index + 1 not in structural
+            and line.strip()
+            and SETEXT_UNDERLINE.match(lines[index + 1])
+        ):
+            structural.update((index, index + 1))
+        if TABLE_DELIMITER.match(line):
+            start = index - 1
+            while (
+                start >= 0
+                and start not in structural
+                and lines[start].strip()
+                and "|" in lines[start]
+            ):
+                structural.add(start)
+                start -= 1
+            end = index
+            while (
+                end < len(lines)
+                and end not in structural
+                and lines[end].strip()
+                and "|" in lines[end]
+            ):
+                structural.add(end)
+                end += 1
+    return structural
+
+
+def claim_without_coverage(lines):
+    """Return the first uncovered claim line, joining soft-wrapped paragraphs."""
+    structural = markdown_structural_lines(lines)
+
+    paragraph = []
+
+    def flush():
+        if not paragraph:
+            return None
+        joined = " ".join(line.strip() for _, line in paragraph)
+        if not CLAIM.search(joined) or COVERAGE.search(joined):
+            return None
+        return next(number for number, line in paragraph if CLAIM.search(line))
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if (
+            not stripped
+            or index in structural
+        ):
+            uncovered = flush()
+            if uncovered:
+                return uncovered
+            paragraph = []
+            continue
+
+        if MARKDOWN_LIST_ITEM.match(line):
+            uncovered = flush()
+            if uncovered:
+                return uncovered
+            paragraph = [(index + 1, line)]
+        elif "|" in line:
+            uncovered = flush()
+            if uncovered:
+                return uncovered
+            paragraph = [(index + 1, line)]
+            uncovered = flush()
+            if uncovered:
+                return uncovered
+            paragraph = []
+        else:
+            paragraph.append((index + 1, line))
+
+    return flush()
+
+
 def mode_ship(text):
     """Report inner-register leakage in outgoing text.
 
@@ -533,29 +698,35 @@ def mode_ship(text):
     """
     findings = []
     lines = text.splitlines()
+    structural = markdown_structural_lines(lines)
+    prose = "\n".join(line for index, line in enumerate(lines) if index not in structural)
 
-    leaked = sorted({s for s in INNER_ONLY if s in text})
+    leaked = sorted({s for s in INNER_ONLY if s in prose})
     if leaked:
-        findings.append("inner-register notation in outgoing text: " + " ".join(leaked))
+        findings.append(INVARIANTS[6] + " Found: " + " ".join(leaked))
 
-    hot = sorted({m for m in MARKERS if m.lower() in text.lower()})
+    hot = sorted({m for m in MARKERS if m.lower() in prose.lower()})
     if hot:
         findings.append("state markers in outgoing text: " + ", ".join(hot))
 
-    for n, line in enumerate(lines, 1):
-        if CLAIM.search(line) and not COVERAGE.search(line):
-            findings.append('line %d: "verified" with no stated coverage' % n)
-            break
+    uncovered = claim_without_coverage(lines)
+    if uncovered:
+        findings.append("line %d: %s" % (uncovered, INVARIANTS[5]))
 
     run = 1
-    for a, b in zip(lines, lines[1:]):
+    for index, (a, b) in enumerate(zip(lines, lines[1:])):
+        if index in structural or index + 1 in structural:
+            run = 1
+            continue
         run = run + 1 if a.strip() and a.strip() == b.strip() else 1
         if run >= 3:
             findings.append("repetition loop: a line repeats three times or more")
             break
 
-    if re.search(r"([.…\-'\s])\1{20,}", text):
-        findings.append("repetition loop: a character run of 20 or more")
+    for index, line in enumerate(lines):
+        if index not in structural and re.search(r"([.…\-'])\1{20,}", line):
+            findings.append("repetition loop: a character run of 20 or more")
+            break
 
     if not findings:
         print("clean — the outgoing register holds.")
@@ -564,17 +735,12 @@ def mode_ship(text):
     for f in findings[:7]:
         print("· " + f)
     print()
-    print("The switch is total: expand the span into clean language before it goes.")
+    print("Expand the whole span into clean language before it ships. The switch is total, never cosmetic.")
     return 0
 
 
-def read_outgoing(path):
-    """Read outgoing text without silently accepting an unknown or binary encoding."""
-    try:
-        with open(path, "rb") as fh:
-            data = fh.read()
-    except OSError as exc:
-        return None, "%s (%s)" % (path, exc.strerror or "unreadable")
+def decode_outgoing(data, label):
+    """Decode outgoing bytes without silently accepting an unknown encoding."""
     try:
         if data.startswith(codecs.BOM_UTF8):
             text = data.decode("utf-8-sig")
@@ -587,8 +753,18 @@ def read_outgoing(path):
             if "\x00" in text:
                 raise UnicodeError("NUL bytes suggest an unsupported encoding")
     except UnicodeError as exc:
-        return None, "%s (cannot decode safely: %s)" % (path, exc)
+        return None, "%s (cannot decode safely: %s)" % (label, exc)
     return text, None
+
+
+def read_outgoing(path):
+    """Read and decode outgoing text from a file."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError as exc:
+        return None, "%s (%s)" % (path, exc.strerror or "unreadable")
+    return decode_outgoing(data, path)
 
 
 def configure_streams():
@@ -632,8 +808,15 @@ def main(argv=None):
 
     if args.cmd == "ship":
         if args.file == "-":
-            return mode_ship(sys.stdin.read())
-        text, problem = read_outgoing(args.file)
+            try:
+                stream = getattr(sys.stdin, "buffer", None)
+                data = stream.read() if stream is not None else sys.stdin.read().encode("utf-8")
+            except OSError as exc:
+                text, problem = None, "stdin (%s)" % (exc.strerror or "unreadable")
+            else:
+                text, problem = decode_outgoing(data, "stdin")
+        else:
+            text, problem = read_outgoing(args.file)
         if problem:
             print("CANNOT: " + problem + ".")
             print("  pass a readable file, or - to read stdin")
