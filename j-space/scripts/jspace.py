@@ -379,7 +379,7 @@ def print_reentry(book, heading):
     )
 
 
-def mode_seam(book, json_flag=False, dry_run=False, quiet=False):
+def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None):
     """Run a seam: re-anchor, record a history row, surface observations.
 
     ``--quiet`` borrows the ``pytest -q`` / ``cargo --quiet`` /
@@ -391,8 +391,13 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False):
     block, the heal list and the next-empty reminder; it leaves
     only the facts, one per line, in the order ``observations``
     produced them. ``--json`` and ``--quiet`` are independent
-    (a host that wants machine-readable output does not need
+    (a host can ask for machine-readable output does not need
     quiet, and a human reading JSON does not need quiet either).
+    ``--message`` borrows ``git commit -m`` /
+    ``kubectl annotate`` / ``docker commit -m``: attach a
+    human-meaningful annotation to the recorded row so the audit
+    log carries not just the next action but the reason the
+    model picked it.
     """
     hist = read_history()
     gap = int(time.time()) - hist[-1]["t"] if hist else 0
@@ -412,12 +417,30 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False):
     # record without committing the row.
     if not dry_run:
         hist = append_history(book)
+        if message and hist:
+            # Borrowed from ``git commit -m`` /
+            # ``kubectl annotate`` / ``docker commit -m``: the
+            # recorded row gains an optional ``msg`` field. A
+            # subsequent ``--fields msg`` will surface it, and
+            # ``--grep MSG`` will substring-match the annotation
+            # the way it substring-matches the next action. The
+            # field is optional: existing rows without ``msg`` are
+            # still readable and still match the rendered output.
+            hist[-1]["msg"] = message
+            problem = atomic_write_text(
+                HISTORY, json.dumps(hist, ensure_ascii=False))
+            if problem:
+                print("WARNING: could not write seam message — "
+                      + problem, file=sys.stderr)
     found = observations(hist)
     if json_flag:
         payload = _seam_json_payload(book, hist, found, gap)
         if dry_run:
             payload.setdefault("warnings", []).append(
                 "dry-run: history.json was not updated")
+        if message and not dry_run and hist:
+            payload.setdefault("warnings", []).append(
+                "message: %s" % message)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
     if quiet:
@@ -437,6 +460,9 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False):
         print("You would not have noticed that; I keep the record, so here it is.")
         print("If that is depth, carry on. If it is a stall, the moves open to you are:")
         print("  " + SHIFTS)
+    if message and not dry_run:
+        print()
+        print("Message:   " + message)
     if dry_run:
         print()
         print("dry-run: history.json was not updated.")
@@ -533,9 +559,13 @@ def mode_history(args):
         # next action, which is the only field a host reads.
         # The match is case-insensitive so the typical
         # ``--grep TODO`` style works the way the borrower does.
+        # The substring runs against both ``next`` and the
+        # optional ``msg`` field, the way ``git log --grep`` runs
+        # against the commit message rather than the diff body.
         needle = grep_text.lower()
         hist = [row for row in hist
-                if needle in (row.get("next") or "").lower()]
+                if needle in (row.get("next") or "").lower()
+                or needle in (row.get("msg") or "").lower()]
     if getattr(args, "reverse", False):
         # Borrowed from ``git log --reverse``: the default ``history``
         # walks the file in append order (oldest first) because
@@ -1248,6 +1278,8 @@ def main(argv=None):
                     help="run the analysis without appending to history.json (like terraform plan)")
     sm.add_argument("--quiet", dest="quiet", action="store_true",
                     help="suppress banner, ledger, telemetry, trend, remediation and heal; print only the observation facts (like pytest -q)")
+    sm.add_argument("--message", "--msg", dest="message", default=None,
+                    help="attach a human-meaningful annotation to the recorded row (like git commit -m / kubectl annotate)")
     sub.add_parser("resume", help="premise, invariants and full ledger, after a gap")
 
     n = sub.add_parser("note", help="record something in the ledger")
@@ -1354,6 +1386,7 @@ def main(argv=None):
             json_flag=getattr(args, "json", False),
             dry_run=getattr(args, "dry_run", False),
             quiet=getattr(args, "quiet", False),
+            message=getattr(args, "message", None),
         )
     if args.cmd == "resume":
         return mode_resume(book)

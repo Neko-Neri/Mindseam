@@ -242,6 +242,7 @@ That keeps `.jspace/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/jspace.py seam --json                                 # the same report, machine-readable JSON
 <python-command> <skill-root>/scripts/jspace.py seam --dry-run                                # preview a seam without writing history.json (like terraform plan)
 <python-command> <skill-root>/scripts/jspace.py seam --quiet                                  # print only the observation facts, one per line (like pytest -q)
+<python-command> <skill-root>/scripts/jspace.py seam --message "TICKET-101"           # attach a human annotation to the recorded row (like git commit -m / kubectl annotate)
 <python-command> <skill-root>/scripts/jspace.py info                                       # aggregate digest of the workspace state
 <python-command> <skill-root>/scripts/jspace.py info --json                                # same digest, machine-readable JSON
 <python-command> <skill-root>/scripts/jspace.py info --warnings-only                     # print only the warning lines (like gh run list --state failed)
