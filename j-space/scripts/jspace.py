@@ -571,6 +571,28 @@ def _humanize_seconds(seconds):
     return "%d year%s" % (years, "" if years == 1 else "s")
 
 
+def _humanize_bytes(size_bytes):
+    """Render a file size in the most natural unit, the way
+    ``ls -lh`` / ``du -h`` / ``free -m`` do. The renderer picks
+    the largest unit that produces a value >= 1, the way
+    ``ls -lh`` does: bytes under 1K, K under 1M, M under 1G, G
+    above. ``info --memory`` is the only caller; ``info --json``
+    also exposes the raw ``bytes`` count for hosts that need
+    it. Returns the literal string ``"0 bytes"`` for an empty
+    workspace.
+    """
+    if size_bytes < 1024:
+        return "%d bytes" % size_bytes
+    size_kb = size_bytes / 1024.0
+    if size_kb < 1024:
+        return "%.1f KB" % size_kb
+    size_mb = size_kb / 1024.0
+    if size_mb < 1024:
+        return "%.1f MB" % size_mb
+    size_gb = size_mb / 1024.0
+    return "%.1f GB" % size_gb
+
+
 def mode_history(args):
     """Print the recent seam history.
 
@@ -966,7 +988,8 @@ def mode_history(args):
 
 
 def mode_info(book, json_flag=False, warnings_only=False,
-              version_only=False, human=False, check_only=False):
+              version_only=False, human=False, check_only=False,
+              memory_only=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -1067,6 +1090,39 @@ def mode_info(book, json_flag=False, warnings_only=False,
         for issue in issues:
             print("  - " + issue)
         return 2
+    if memory_only:
+        # Borrowed from ``free -m`` / ``du -h`` / ``ls -lh`` /
+        # ``docker system df`` / ``npm view size``: render the
+        # workspace size on disk in human-readable units. The
+        # text path picks the largest unit that produces a
+        # value >= 1, the way ``ls -lh`` does. ``--json``
+        # exposes both the raw byte count and the human form.
+        workspace_path = LEDGER_DIR
+        if os.path.isfile(LEDGER):
+            workspace_path = os.path.dirname(LEDGER) or "."
+        if not os.path.isdir(workspace_path):
+            size_bytes = 0
+        else:
+            size_bytes = 0
+            for dirpath, dirnames, filenames in os.walk(workspace_path):
+                for name in filenames:
+                    path = os.path.join(dirpath, name)
+                    try:
+                        size_bytes += os.path.getsize(path)
+                    except OSError:
+                        pass
+        size_human = _humanize_bytes(size_bytes)
+        if json_flag:
+            print(json.dumps({
+                "workspace": os.path.abspath(workspace_path),
+                "bytes": size_bytes,
+                "human": size_human,
+            }, indent=2, ensure_ascii=False))
+            return 0
+        print("── j-space ─ info memory")
+        print("  workspace: %s" % os.path.abspath(workspace_path))
+        print("  size:      %s (%d bytes)" % (size_human, size_bytes))
+        return 0
     if json_flag:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -1523,6 +1579,7 @@ def main(argv=None):
     n.add_argument("--core-slot", dest="core_slot", type=int, choices=(1, 2))
     n.add_argument("--next")
     n.add_argument("--check")
+    n.add_argument("--memory")
     n.add_argument("--by")
     n.add_argument("--open")
     n.add_argument("--settled-by", dest="settled_by")
@@ -1550,6 +1607,9 @@ def main(argv=None):
     info_p.add_argument(
         "--check", dest="check_only", action="store_true",
         help="report ledger health issues without repairing (like git fsck, exit 2 on issues)")
+    info_p.add_argument(
+        "--memory", dest="memory_only", action="store_true",
+        help="report workspace disk size in human units (like free -m / du -h / docker system df)")
 
     hist_p = sub.add_parser(
         "history", help="tail the seam audit log")
@@ -1659,6 +1719,7 @@ def main(argv=None):
             version_only=getattr(args, "version_only", False),
             human=getattr(args, "human", False),
             check_only=getattr(args, "check_only", False),
+            memory_only=getattr(args, "memory_only", False),
         )
     if args.cmd == "history":
         return mode_history(args)

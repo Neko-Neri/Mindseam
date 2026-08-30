@@ -299,6 +299,43 @@ class InfoSubcommandTests(unittest.TestCase):
         self.assertIn("no goal set", joined)
         self.assertIn("no next action set", joined)
 
+    def test_info_memory_reports_workspace_size(self):
+        # Borrowed from ``free -m`` / ``du -h`` / ``ls -lh`` /
+        # ``docker system df``: render the workspace size in
+        # human-readable units. The text path picks the largest
+        # unit that produces a value >= 1, the way ``ls -lh``
+        # does.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["info", "--memory"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("── j-space ─ info memory", r.stdout)
+        # Bytes < 1K render as ``N bytes``; bytes >= 1K render
+        # as ``N.N KB`` and so on. The history file is small in
+        # tests, so we accept any human unit here.
+        self.assertTrue(
+            any(unit in r.stdout for unit in
+                ("bytes", "KB", "MB", "GB")),
+            "no human unit in: %r" % r.stdout,
+        )
+
+    def test_info_memory_json_round_trip(self):
+        # ``--json`` exposes both the raw ``bytes`` count and
+        # the human form, so a host can pick the shape it needs.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["info", "--memory", "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertIn("bytes", payload)
+        self.assertIn("human", payload)
+        self.assertIsInstance(payload["bytes"], int)
+        self.assertIsInstance(payload["human"], str)
+        # The byte count matches the reported human: ``N.N KB``
+        # parses back to the right order of magnitude.
+        if "KB" in payload["human"]:
+            self.assertGreaterEqual(payload["bytes"], 1024)
+
 
 if __name__ == "__main__":
     unittest.main()

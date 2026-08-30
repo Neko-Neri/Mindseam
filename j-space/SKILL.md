@@ -249,6 +249,7 @@ That keeps `.jspace/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/jspace.py info --version                          # print the controller version on its own (like gh --version / kubectl version)
 <python-command> <skill-root>/scripts/jspace.py info --human                           # render time spans in human units (like df -h / git log --relative-date)
 <python-command> <skill-root>/scripts/jspace.py info --check                          # report ledger health issues, exit 2 on problems (like git fsck, npm doctor)
+<python-command> <skill-root>/scripts/jspace.py info --memory                        # report workspace disk size in human units (like free -m / du -h)
 <python-command> <skill-root>/scripts/jspace.py history                                    # tail the seam audit log (like git log)
 <python-command> <skill-root>/scripts/jspace.py history --head 5                                # first 5 entries only (like head -n 5)
 <python-command> <skill-root>/scripts/jspace.py history --tail 5                                # last 5 entries only (like tail -n 5, alias of -n)
