@@ -336,6 +336,39 @@ class InfoSubcommandTests(unittest.TestCase):
         if "KB" in payload["human"]:
             self.assertGreaterEqual(payload["bytes"], 1024)
 
+    def test_info_list_fields_describes_schema(self):
+        # Borrowed from ``kubectl explain`` /
+        # ``gh repo view --json fields`` / ``man page``: a
+        # self-describing schema for the ledger, so a host or
+        # human can introspect what ``info`` / ``history`` /
+        # ``seam`` will produce without reading the source.
+        r = _invoke(["info", "--list-fields"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for section in ("ledger", "history_row", "info_payload"):
+            self.assertIn("── j-space ─ info %s" % section, r.stdout)
+        # The text renderer names the field and the doc string
+        # for every section, so a host can grep the field name
+        # out of the output and read the doc that follows.
+        for field in ("goal", "core", "verified", "open", "next",
+                      "t", "msg", "history_count", "gap_seconds"):
+            self.assertIn(field, r.stdout)
+
+    def test_info_list_fields_json_round_trip(self):
+        # ``--json`` exposes the same schema the text path
+        # describes, so a host that builds a consumer off the
+        # JSON face gets the same vocabulary.
+        r = _invoke(["info", "--list-fields", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        schema = json.loads(r.stdout)
+        self.assertIn("ledger", schema)
+        self.assertIn("history_row", schema)
+        self.assertIn("info_payload", schema)
+        for section, fields in schema.items():
+            for name, doc in fields.items():
+                self.assertIsInstance(name, str)
+                self.assertIsInstance(doc, str)
+
 
 if __name__ == "__main__":
     unittest.main()

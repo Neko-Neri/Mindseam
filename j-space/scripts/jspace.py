@@ -989,7 +989,7 @@ def mode_history(args):
 
 def mode_info(book, json_flag=False, warnings_only=False,
               version_only=False, human=False, check_only=False,
-              memory_only=False):
+              memory_only=False, list_fields=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -1122,6 +1122,47 @@ def mode_info(book, json_flag=False, warnings_only=False,
         print("── j-space ─ info memory")
         print("  workspace: %s" % os.path.abspath(workspace_path))
         print("  size:      %s (%d bytes)" % (size_human, size_bytes))
+        return 0
+    if list_fields:
+        # Borrowed from ``kubectl explain`` / ``gh repo view
+        # --json fields`` / ``man page``: a self-describing
+        # schema for the ledger, so a host or human can
+        # introspect what ``info`` / ``history`` / ``seam`` will
+        # produce without reading the source. The text path
+        # mirrors the JSON path: both expose the same section
+        # names and field names, so a host that builds a
+        # consumer off either face gets the same vocabulary.
+        schema = {
+            "ledger": {
+                "goal": "the one-sentence definition of done",
+                "core": "two-line live hub entries, the rest parked",
+                "verified": "appended numbered checkpoints",
+                "open": "questions that still need settling",
+                "next": "the next action the model is going to take",
+            },
+            "history_row": {
+                "t": "epoch seconds when the seam was appended",
+                "next": "the next action that the model picked",
+                "verified": "count of verified checkpoints at that seam",
+                "open": "count of open questions at that seam",
+                "msg": "optional annotation, the way git commit -m adds a message",
+            },
+            "info_payload": {
+                "ledger": "the ledger section above",
+                "history_count": "number of rows in history.json",
+                "last_seam.t": "epoch seconds of the most recent seam",
+                "last_seam.gap_seconds": "seconds since that seam, or null",
+                "last_seam.long_gap": "true if gap > RESUME_GAP",
+                "warnings": "list of human-meaningful alert lines",
+            },
+        }
+        if json_flag:
+            print(json.dumps(schema, indent=2, ensure_ascii=False))
+            return 0
+        for section, fields in schema.items():
+            print("── j-space ─ info %s" % section)
+            for name, doc in fields.items():
+                print("  %-22s  %s" % (name, doc))
         return 0
     if json_flag:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -1610,6 +1651,9 @@ def main(argv=None):
     info_p.add_argument(
         "--memory", dest="memory_only", action="store_true",
         help="report workspace disk size in human units (like free -m / du -h / docker system df)")
+    info_p.add_argument(
+        "--list-fields", dest="list_fields", action="store_true",
+        help="describe the ledger schema (like kubectl explain / man page)")
 
     hist_p = sub.add_parser(
         "history", help="tail the seam audit log")
@@ -1720,6 +1764,7 @@ def main(argv=None):
             human=getattr(args, "human", False),
             check_only=getattr(args, "check_only", False),
             memory_only=getattr(args, "memory_only", False),
+            list_fields=getattr(args, "list_fields", False),
         )
     if args.cmd == "history":
         return mode_history(args)
