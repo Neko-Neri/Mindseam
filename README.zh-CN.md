@@ -7,7 +7,7 @@
 J-Space Cognition Suite 是一套面向深度推理、长程工作、工具调用、验证与恢复的模型无关
 推理时控制系统。它以 Skill 形式封装，从而支持跨平台使用、选择性加载与低摩擦集成。
 
-套件将智能体可访问的工作表征组织为一个可主动管理的工作空间。整体由一个入口、九个按需
+套件将智能体可访问的工作表征组织为一个可主动管理的工作空间。整体由一个入口、十一个按需
 加载的模块、三份支撑资料，以及一个用于保存长任务状态的可选标准库控制器组成。
 
 J-Space 在推理阶段运行，模型权重和训练过程保持原有状态。
@@ -107,16 +107,58 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `note --check "..." --by "..."` | 追加包含验证方式与覆盖范围的 checkpoint |
 | `note --open "..." --settled-by "..."` | 记录开放问题和收束条件 |
 | `note --close N --check "..." --by "..."` | 以新记录的 checkpoint 关闭编号为 `N` 的问题 |
+| `note --error "domain: what broke"` | 记录这一步的失败原因，使错误类探测器可见 |
+| `note --outcome "ok"` | 记录这一步实际的落地结果，与声称的结果分开 |
+| `note --extra-steps N` | 记录这一步额外付出的非计划子步骤数 |
+| `note --marker OPEN` | 为该 seam 记录角色标记（绑定动作与收束） |
+| `note --confidence strong` | 记录该步的校准置信度 |
+| `note --verifier "command exit 0"` | 写明某次检查背后的验证者 |
+| `ship FILE --strict` | 同样的寄存器检查；完成门未过时以非零退出 |
 | `seam` | 重读当前状态并报告近期变化 |
+| `seam --json` | 同上，机器可读 JSON |
 | `ship FILE` | 检查输出文本中的寄存器泄漏和失效特征 |
 | `resume` | 在长间隔后重新加载 premise、invariants 和完整账本 |
+| `skillbook` | 打印从会话历史中提取的反复模式 |
+| `skillbook --json` | 同上，机器可读 JSON |
+| `info` | 打印该工作区的学习摘要 |
+| `info --json` | 同上，机器可读 JSON |
+| `history` | 查看 seam 审计日志（类似 `git log`） |
+| `history -n N` | 仅打印最近 N 条记录 |
+| `history --json` | 机器可读审计日志尾 |
+| `discover` | 列出下次迭代推荐的模块 / 领域 |
+| `discover --json` | 同上，机器可读 JSON |
 
 ```text
 <python-command> <skill-root>/scripts/jspace.py note --goal "完成条件" --next "第一个动作"
 <python-command> <skill-root>/scripts/jspace.py note --close 1 --check "当前成立的结论" --by "验证方式与覆盖范围"
 <python-command> <skill-root>/scripts/jspace.py seam
+<python-command> <skill-root>/scripts/jspace.py seam --json
+<python-command> <skill-root>/scripts/jspace.py seam --dry-run
+<python-command> <skill-root>/scripts/jspace.py seam --quiet
 <python-command> <skill-root>/scripts/jspace.py ship OUTPUT_FILE
 <python-command> <skill-root>/scripts/jspace.py resume
+<python-command> <skill-root>/scripts/jspace.py skillbook
+<python-command> <skill-root>/scripts/jspace.py skillbook --json
+<python-command> <skill-root>/scripts/jspace.py info
+<python-command> <skill-root>/scripts/jspace.py info --json
+<python-command> <skill-root>/scripts/jspace.py info --warnings-only
+<python-command> <skill-root>/scripts/jspace.py history
+<python-command> <skill-root>/scripts/jspace.py history --head 5
+<python-command> <skill-root>/scripts/jspace.py history --tail 5
+<python-command> <skill-root>/scripts/jspace.py history -c
+<python-command> <skill-root>/scripts/jspace.py history --first-match
+<python-command> <skill-root>/scripts/jspace.py history --fields next
+<python-command> <skill-root>/scripts/jspace.py history --csv
+<python-command> <skill-root>/scripts/jspace.py history --domains
+<python-command> <skill-root>/scripts/jspace.py history --span
+<python-command> <skill-root>/scripts/jspace.py history -n 5
+<python-command> <skill-root>/scripts/jspace.py history --grep TODO
+<python-command> <skill-root>/scripts/jspace.py history --quiet
+<python-command> <skill-root>/scripts/jspace.py history --since 3600
+<python-command> <skill-root>/scripts/jspace.py history --reverse
+<python-command> <skill-root>/scripts/jspace.py history --json
+<python-command> <skill-root>/scripts/jspace.py discover
+<python-command> <skill-root>/scripts/jspace.py discover --json
 ```
 
 控制器负责记录和报告状态，解法仍由模型选择。它只使用 Python 标准库，并且只在任务的
@@ -129,6 +171,50 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 工具或检索工具开放 `modules/` 与 `references/`。
 
 相关文件按需检索；选择性加载本身就是运行设计的一部分。
+
+## 开发者三分钟
+
+```text
+# 第一步：安装（10 秒）
+git clone https://github.com/yzfly/J-Space-Cognition-Suite-V3.6.git
+cd J-Space-Cognition-Suite-V3.6
+# 将 j-space/ 目录复制到你的技能目录或项目根目录
+```
+
+```text
+# 第二步：在一个需要深入推理的任务里打开心力（10 秒）
+jspace note --goal "构建一个能处理 10 万并发的聊天 API" --next "设计接口签名"
+# 现在 ledger 有了 `Goal` 和 `Next`，控制器开始跟踪状态
+```
+
+```text
+# 第三步：每完成一个子任务，跑一次 seam（加总 1 分钟）
+# 做了一些设计工作之后：
+jspace seam
+# → 打印 ledger + 最近移动了什么
+# → 自动写入 .jspace/skillbook.md（如果遇到了反复问题）
+```
+
+```text
+# 第四步：遇到反复问题，看 skillbook
+jspace skillbook
+# → 打印 .jspace/skillbook.md 内容
+# → 告诉你：哪些错误重复出现，哪些域反复消耗额外步骤
+```
+
+```text
+# 第五步：准备交付前，跑 ship
+jspace ship output.md
+# → 检查输出是否夹带内部符号（inner-only leakage）
+# → 如果没有问题，退出码 0
+```
+
+```text
+# 第六步：换会话回来时， resume
+jspace resume
+# → 重新打印 premise + invariants + 完整 ledger
+# → 不会丢失跨会话的状态
+```
 
 ## Benchmark
 
@@ -205,7 +291,7 @@ J-Space-Cognition-Suite-V3.6/
 ├── tests/test_jspace.py            # 标准库控制器回归测试
 └── j-space/
     ├── SKILL.md                    # 唯一入口、门控、路由与 invariants
-    ├── modules/                    # 九个按需加载的协议模块
+    ├── modules/                    # 十一个按需加载的协议模块
     ├── references/                 # 证据、诱导方法与工作示例
     └── scripts/
         ├── jspace.py               # 可选 loop 控制器
@@ -243,7 +329,7 @@ J-Space 已连续经历：
 
 **V1 → V1.5 → V1.8 → V2 → V2.5 → V2.6 → V3 → V3.1 → V3.2 → V3.5 → V3.5Turbo → V3.6**
 
-V3.6 套件包含一个入口、九个聚焦模块、三份支撑资料、一个可选运行控制器、一个编写期
+V3.6 套件包含一个入口、十一个聚焦模块、三份支撑资料、一个可选运行控制器、一个编写期
 验证器、一套标准库回归测试、三平台 CI、Apache-2.0 许可和机器可读引用元数据。
 
 ## 引用

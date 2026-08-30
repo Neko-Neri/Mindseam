@@ -9,7 +9,7 @@ long-horizon work, tool use, verification, and recovery. It is packaged as a Ski
 cross-platform use, selective loading, and low-friction integration.
 
 The suite organizes an agent's accessible working representations into a deliberately managed
-workspace. It operates through a single entry, nine selectively loaded modules, three supporting
+workspace. It operates through a single entry, eleven selectively loaded modules, three supporting
 references, and an optional standard-library controller for durable task state.
 
 J-Space operates at inference time. Model weights and training remain unchanged.
@@ -112,16 +112,55 @@ the task workspace as the current directory.
 | `note --check "..." --by "..."` | Append a checkpoint with verifier and coverage |
 | `note --open "..." --settled-by "..."` | Record a question and what would settle it |
 | `note --close N --check "..." --by "..."` | Close question `N` against a new recorded checkpoint |
+| `note --error "domain: what broke"` | Record what failed on this step so the error detectors can see it |
+| `note --outcome "ok"` | Record how the step actually landed, apart from what was claimed |
+| `note --extra-steps N` | Record how many unplanned sub-steps the step cost |
+| `note --marker OPEN` | Tag the seam with a role marker (bound action and settle) |
+| `note --confidence strong` | Record calibrated confidence for the step |
+| `note --verifier "command exit 0"` | Name the verifier behind a check |
+| `ship FILE --strict` | Same register check; non-zero exit on completion-gate failures |
 | `seam` | Re-read current state and report recent movement |
+| `seam --json` | Same seam report, machine-readable JSON |
 | `ship FILE` | Inspect outgoing text for register leakage and failure signatures |
 | `resume` | Reload the premise, invariants, and full ledger after a long gap |
+| `skillbook` | Print recurring patterns extracted from session history |
+| `skillbook --json` | Same, machine-readable JSON |
+| `info` | Print what the suite has learned about this workspace |
+| `info --json` | Same, machine-readable JSON |
+| `discover` | List modules / domains selected for the next pass |
+| `discover --json` | Same, machine-readable JSON |
 
 ```text
 <python-command> <skill-root>/scripts/jspace.py note --goal "what done means" --next "first action"
 <python-command> <skill-root>/scripts/jspace.py note --close 1 --check "what now holds" --by "verifier and coverage"
 <python-command> <skill-root>/scripts/jspace.py seam
+<python-command> <skill-root>/scripts/jspace.py seam --json
+<python-command> <skill-root>/scripts/jspace.py seam --dry-run
+<python-command> <skill-root>/scripts/jspace.py seam --quiet
 <python-command> <skill-root>/scripts/jspace.py ship OUTPUT_FILE
 <python-command> <skill-root>/scripts/jspace.py resume
+<python-command> <skill-root>/scripts/jspace.py skillbook
+<python-command> <skill-root>/scripts/jspace.py skillbook --json
+<python-command> <skill-root>/scripts/jspace.py info
+<python-command> <skill-root>/scripts/jspace.py info --json
+<python-command> <skill-root>/scripts/jspace.py info --warnings-only
+<python-command> <skill-root>/scripts/jspace.py history
+<python-command> <skill-root>/scripts/jspace.py history --head 5
+<python-command> <skill-root>/scripts/jspace.py history --tail 5
+<python-command> <skill-root>/scripts/jspace.py history -c
+<python-command> <skill-root>/scripts/jspace.py history --first-match
+<python-command> <skill-root>/scripts/jspace.py history --fields next
+<python-command> <skill-root>/scripts/jspace.py history --csv
+<python-command> <skill-root>/scripts/jspace.py history --domains
+<python-command> <skill-root>/scripts/jspace.py history --span
+<python-command> <skill-root>/scripts/jspace.py history -n 5
+<python-command> <skill-root>/scripts/jspace.py history --grep TODO
+<python-command> <skill-root>/scripts/jspace.py history --quiet
+<python-command> <skill-root>/scripts/jspace.py history --since 3600
+<python-command> <skill-root>/scripts/jspace.py history --reverse
+<python-command> <skill-root>/scripts/jspace.py history --json
+<python-command> <skill-root>/scripts/jspace.py discover
+<python-command> <skill-root>/scripts/jspace.py discover --json
 ```
 
 The controller records and reports state. Solution choice remains with the model. It uses the
@@ -134,6 +173,50 @@ environment, provide [`j-space/SKILL.md`](j-space/SKILL.md) as a system- or deve
 instruction and expose `modules/` and `references/` through file or retrieval tools.
 
 Selected files should be retrieved on demand. Selective loading is part of the operating design.
+
+## Developer 3-minute story
+
+```text
+# Step 1: install (10 seconds)
+git clone https://github.com/yzfly/J-Space-Cognition-Suite-V3.6.git
+cd J-Space-Cognition-Suite-V3.6
+# Copy j-space/ into your skills directory or project root
+```
+
+```text
+# Step 2: open the register on a task that needs depth (10 seconds)
+jspace note --goal "build a high-concurrency chat API" --next "design the interface signature"
+# The ledger now has Goal and Next; the controller starts tracking state
+```
+
+```text
+# Step 3: run seam after each meaningful sub-task (~1 min total)
+# After doing design work:
+jspace seam
+# → prints ledger + recent movement
+# → auto-writes .jspace/skillbook.md if recurring problems were hit
+```
+
+```text
+# Step 4: inspect skillbook when stuck
+jspace skillbook
+# → prints .jspace/skillbook.md
+# → tells you: which errors recurred, which domains cost extra steps
+```
+
+```text
+# Step 5: delivery gate
+jspace ship output.md
+# → checks outgoing text for inner-register leakage
+# → exit 0 if clean
+```
+
+```text
+# Step 6: resume after a long break
+jspace resume
+# → reprints premise + invariants + full ledger
+# → state survives the session gap
+```
 
 ## Benchmarks
 
@@ -213,10 +296,10 @@ J-Space-Cognition-Suite-V3.6/
 ├── README.md                       # English engineering guide
 ├── README.zh-CN.md                 # Chinese engineering guide
 ├── THIRD_PARTY_NOTICES.md          # attribution and license boundaries for source material
-├── tests/test_jspace.py            # standard-library controller regression tests
+├── tests/                          # controller regression tests (test_r*.py rounds)
 └── j-space/
     ├── SKILL.md                    # single entry, gate, routing, and invariants
-    ├── modules/                    # nine selectively loaded protocols
+    ├── modules/                    # eleven selectively loaded protocols
     ├── references/                 # evidence, induction, and worked exemplars
     └── scripts/
         ├── jspace.py               # optional loop controller
@@ -257,7 +340,7 @@ J-Space has progressed through:
 
 **V1 → V1.5 → V1.8 → V2 → V2.5 → V2.6 → V3 → V3.1 → V3.2 → V3.5 → V3.5Turbo → V3.6**
 
-The V3.6 package contains one entry, nine focused modules, three supporting references, an
+The V3.6 package contains one entry, eleven focused modules, three supporting references, an
 optional runtime controller, an authoring-time verifier, standard-library regression tests,
 three-platform CI, Apache-2.0 licensing, and machine-readable citation metadata.
 

@@ -371,19 +371,56 @@ def print_reentry(book, heading):
     )
 
 
-def mode_seam(book):
+def mode_seam(book, json_flag=False, dry_run=False, quiet=False):
+    """Run a seam: re-anchor, record a history row, surface observations.
+
+    ``--quiet`` borrows the ``pytest -q`` / ``cargo --quiet`` /
+    ``npm test --silent`` family of output-silencing flags — a
+    human running ``seam`` in a shell wants the full report, but
+    a host piping it into another tool only wants the
+    observations facts. ``--quiet`` drops the banner, the ledger
+    echo, the telemetry line, the trend line, the remediation
+    block, the heal list and the next-empty reminder; it leaves
+    only the facts, one per line, in the order ``observations``
+    produced them. ``--json`` and ``--quiet`` are independent
+    (a host that wants machine-readable output does not need
+    quiet, and a human reading JSON does not need quiet either).
+    """
     hist = read_history()
     gap = int(time.time()) - hist[-1]["t"] if hist else 0
-    if gap > RESUME_GAP:
-        print_reentry(
-            book,
-            "── j-space ─ seam (long gap: %d minutes since the last one)" % (gap // 60),
-        )
-    else:
-        print("── j-space ─ seam")
-        print_ledger(book)
-    hist = append_history(book)
+    if not (json_flag or quiet):
+        if gap > RESUME_GAP:
+            print_reentry(
+                book,
+                "── j-space ─ seam (long gap: %d minutes since the last one)" % (gap // 60),
+            )
+        else:
+            print("── j-space ─ seam")
+            print_ledger(book)
+    # Borrowed from ``kubectl apply --dry-run=client`` / ``terraform plan``
+    # / ``npm install --dry-run``: the seam's analysis runs as normal
+    # but ``append_history`` is skipped so ``.jspace/history.json`` does
+    # not gain a row. CI hooks use this to preview what a seam would
+    # record without committing the row.
+    if not dry_run:
+        hist = append_history(book)
     found = observations(hist)
+    if json_flag:
+        payload = _seam_json_payload(book, hist, found, gap)
+        if dry_run:
+            payload.setdefault("warnings", []).append(
+                "dry-run: history.json was not updated")
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    if quiet:
+        # The same fact lines the verbose path prints, one per line.
+        # No banner, no ledger echo, no telemetry, no trend, no
+        # remediation, no heal, no next-empty reminder. The exit
+        # code still follows the baseline contract: 0 on success,
+        # regardless of whether any facts fired.
+        for f in found:
+            print(f)
+        return 0
     if found:
         print()
         for f in found:
@@ -392,16 +429,402 @@ def mode_seam(book):
         print("You would not have noticed that; I keep the record, so here it is.")
         print("If that is depth, carry on. If it is a stall, the moves open to you are:")
         print("  " + SHIFTS)
+    if dry_run:
+        print()
+        print("dry-run: history.json was not updated.")
     if not one(book, "Next"):
         print()
         print("`Next` is never empty. A ledger with no next action is a ledger you have stopped using.")
     return 0
 
 
+def _seam_json_payload(book, hist, found, gap):
+    """Assemble the machine-readable seam report.
+
+    The keys mirror the text report one for one so a host can read either
+    face. Borrowed from the standard CLI pattern — ``gh --json``,
+    ``cargo --message-format json``, ``aws --output json`` — text and
+    JSON are two faces of the same data, not two separate products.
+    """
+    core = book.get("Core", [])
+    verified = book.get("Verified", [])
+    opens = book.get("Open", [])
+    last_risks = [h.get("risk") for h in hist[-3:] if h.get("risk")]
+    return {
+        "ledger": {
+            "goal": one(book, "Goal") or None,
+            "core_live": core[:2],
+            "core_parked": core[2:],
+            "verified_count": len(verified),
+            "verified_last": verified[-1] if verified else None,
+            "open": list(opens),
+            "next": one(book, "Next") or None,
+        },
+        "history_count": len(hist),
+        "long_gap": bool(gap > RESUME_GAP),
+        "gap_minutes": (gap // 60) if gap > RESUME_GAP else 0,
+        "facts": list(found),
+        "trend": {
+            "risk": last_risks,
+        },
+        "warnings": (
+            ["next action is not set"] if not one(book, "Next") else []
+        ),
+    }
+
+
 def mode_resume(book):
     print_reentry(book, "── j-space ─ resume")
     append_history(book)
     return 0
+
+
+def mode_history(args):
+    """Print the recent seam history.
+
+    Borrowed from ``git log -n N`` / ``gh run list --limit N`` /
+    ``docker logs --tail N`` — a tail / limit interface over an
+    append-only record. The history file is the controller's
+    audit log; the only thing the model loses between seams is what
+    it did not write down, and a tail view lets a host or human
+    re-anchor without re-running a seam. ``--reverse`` borrows
+    ``git log --reverse`` to surface the oldest row first, which is
+    the right order when the reader wants the chronological origin
+    of a pattern rather than its most recent appearance.
+    ``--since`` borrows ``docker logs --since 30m`` /
+    ``journalctl --since "1 hour ago"`` — keep only the rows that
+    landed within the last N seconds, so a host can scope the
+    audit log to the most recent run.
+    ``--grep`` borrows ``git log --grep "TODO"`` /
+    ``docker logs | grep ERROR`` — keep only the rows whose next
+    action matches a substring, so a host can scope the audit
+    log to a specific topic.
+    """
+    hist = read_history()
+    # Borrowed from ``head -n N`` / ``tail -n N``: ``--head N`` keeps
+    # the first N rows, ``--tail N`` keeps the last N. ``-n N`` /
+    # ``--limit N`` aliases ``--tail`` so the older ``-n`` flag
+    # keeps working unchanged. When both ``--head`` and ``--tail``
+    # are present, ``--head`` wins; that matches the shell
+    # convention of the last filter winning, and a host that
+    # wants the full pipeline should set one and the other via
+    # separate invocations.
+    head_n = getattr(args, "head", None)
+    tail_n = args.limit if args.limit is not None else getattr(args, "tail", None)
+    if head_n is not None and head_n >= 0:
+        hist = hist[:head_n] if hist else []
+    elif tail_n is not None and tail_n >= 0:
+        hist = hist[-tail_n:] if hist else []
+    since_seconds = getattr(args, "since", None)
+    if since_seconds is not None and since_seconds >= 0:
+        cutoff = int(time.time()) - since_seconds
+        hist = [row for row in hist if int(row.get("t") or 0) >= cutoff]
+    grep_text = getattr(args, "grep", None)
+    if grep_text:
+        # Borrowed from ``git log --grep``: substring match on the
+        # next action, which is the only field a host reads.
+        # The match is case-insensitive so the typical
+        # ``--grep TODO`` style works the way the borrower does.
+        needle = grep_text.lower()
+        hist = [row for row in hist
+                if needle in (row.get("next") or "").lower()]
+    if getattr(args, "reverse", False):
+        # Borrowed from ``git log --reverse``: the default ``history``
+        # walks the file in append order (oldest first) because
+        # that is the most useful way to read a left-to-right log;
+        # ``--reverse`` flips that to newest first, the same way
+        # ``git log`` defaults to newest first and ``--reverse``
+        # flips it back. Keeping the two flags consistent across
+        # the borrowings lets a host that knows ``git log`` know
+        # ``history`` too.
+        hist = hist[::-1]
+    # Borrowed from ``grep -m 1`` / ``ripgrep --max-count=1``:
+    # stop after the first matching row, the way a host finds
+    # the first time a topic appeared in the audit log. The
+    # order is the order of ``hist``: append order by default, or
+    # ``--reverse`` to scan from the most recent. ``--count``,
+    # ``--quiet`` and ``--json`` honour the truncation: ``--count``
+    # always reports the surviving count, ``--json`` lists the
+    # surviving rows, ``--quiet`` prints only the surviving
+    # next action. The flag only narrows the result set.
+    if getattr(args, "first_match", False):
+        hist = hist[:1]
+    fields_attr = getattr(args, "fields", None)
+    if fields_attr:
+        selected = [f.strip() for f in fields_attr.split(",") if f.strip()]
+        if not selected:
+            selected = ["next"]
+    else:
+        selected = None
+    # Both `--csv` and `--domains` render modes work in text or JSON —
+    # they must run before the general `--json` payload is returned so
+    # their results can ride the JSON renderer instead of falling back
+    # to the plain table.
+    if getattr(args, "csv", False):
+        # Borrowed from ``aws --output csv`` /
+        # ``kubectl get -o csv`` / PowerShell ``ConvertTo-Csv``:
+        # emit the history as comma-separated values with a
+        # header line and RFC 4180 quoting, so a host can feed
+        # it into Excel / pandas / ``csv.reader`` without any
+        # parsing. Missing or empty fields render as empty
+        # strings, and the row order is the one that other
+        # flags picked; ``--csv`` only changes the renderer.
+        import csv as _csv
+        import io as _io
+        buf = _io.StringIO()
+        cols = selected if selected is not None else ["t", "next", "verified", "open"]
+        writer = _csv.writer(buf)
+        writer.writerow(cols)
+        for row in hist:
+            writer.writerow([str(row.get(f, "")) if row.get(f) else "" for f in cols])
+        sys.stdout.write(buf.getvalue())
+        return 0
+    if getattr(args, "domains", False):
+        # Borrowed from JIT-Agent's action-diversity analysis: the
+        # ``dom:`` prefix of each row's ``next`` action is a topic
+        # index; grouping by it shows which domain the session has
+        # been spending its seams on, the way the JIT harness
+        # factors memory / planning / action / capability. The
+        # per-domain count and share let a host see the agent's
+        # working-area spread without asking the model to re
+        # -derive it. Empty rows (no ``next`` recorded) land in
+        # ``(none)``.
+        counts = {}
+        total = 0
+        for row in hist:
+            nxt = (row.get("next") or "").strip()
+            if not nxt:
+                continue
+            domain = nxt.split(":", 1)[0].strip().lower() or "(none)"
+            counts[domain] = counts.get(domain, 0) + 1
+            total += 1
+        if not counts:
+            if args.json:
+                print(json.dumps({"domains": []}, indent=2))
+            else:
+                print("── j-space ─ history (no rows with a next action)")
+            return 0
+        ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        if args.json:
+            print(json.dumps(
+                {
+                    "domains": [
+                        {"domain": name, "count": count, "share": round(count / total, 4)}
+                        for name, count in ranked
+                    ],
+                },
+                indent=2, ensure_ascii=False,
+            ))
+            return 0
+        print("── j-space ─ history (%d domains across %d seams)" % (len(counts), total))
+        for name, count in ranked:
+            share = count * 100.0 / total
+            print("  %-20s  %3d  (%5.1f%%)" % (name, count, share))
+        print()
+        return 0
+    if getattr(args, "span", False):
+        # Borrowed from ``git log --stat`` /
+        # ``journalctl --list-boots``: a single-line summary of
+        # the audit log's time span — first seam, last seam, and
+        # the duration between. ``--since`` / ``--grep`` /
+        # ``--head`` / ``--tail`` still narrow the window first,
+        # so a host can ask "how long did the TODO burst last"
+        # with ``--grep TODO --span``. A single-row window has
+        # no duration to speak of; the renderer says so.
+        if args.json:
+            if not hist:
+                print(json.dumps({"span": None}, indent=2))
+                return 0
+            first_t = int(hist[0].get("t") or 0)
+            last_t = int(hist[-1].get("t") or 0)
+            print(json.dumps({
+                "span": {
+                    "first": first_t,
+                    "last": last_t,
+                    "duration_seconds": max(0, last_t - first_t),
+                    "rows": len(hist),
+                },
+            }, indent=2))
+            return 0
+        if not hist:
+            print("── j-space ─ history span (no rows)")
+            return 0
+        first_t = int(hist[0].get("t") or 0)
+        last_t = int(hist[-1].get("t") or 0)
+        duration = max(0, last_t - first_t)
+        first_when = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(first_t)) if first_t else "(none)"
+        last_when = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(last_t)) if last_t else "(none)"
+        print("── j-space ─ history span")
+        print("  First seam: %s" % first_when)
+        print("  Last seam:  %s" % last_when)
+        print("  Duration:   %d seconds across %d rows" % (duration, len(hist)))
+        return 0
+    if args.json:
+        print(json.dumps({
+            "history_count": len(hist),
+            "limit": args.limit,
+            "since": since_seconds,
+            "grep": grep_text,
+            "reverse": bool(getattr(args, "reverse", False)),
+            "rows": list(hist),
+        }, ensure_ascii=False, indent=2))
+        return 0
+    if getattr(args, "quiet", False):
+        # Borrowed from ``git log --oneline`` and
+        # ``docker logs --quiet``: print only the next action of
+        # each row, one per line, with no header, no row number,
+        # no other field. A host can pipe the result into
+        # ``xargs`` / ``grep`` / ``sort -u`` to build a topic
+        # index of what the session actually did, the way
+        # ``git log --oneline`` powers a commit title index.
+        for row in hist:
+            nxt = row.get("next") or ""
+            print(nxt)
+        return 0
+    if getattr(args, "count", False):
+        # Borrowed from ``wc -l`` / ``git rev-list --count``:
+        # print only the row count. ``--since`` and ``--grep``
+        # still apply, so a host can do
+        # ``count=$(jspace history --since 3600 --grep TODO --count)``
+        # without parsing tables. Exit code stays 0 so a host
+        # can compose with ``|| true`` style guards.
+        print(len(hist))
+        return 0
+    fields = getattr(args, "fields", None)
+    if fields:
+        # Borrowed from ``docker ps --format '{{.Names}}'`` /
+        # ``kubectl get -o custom-columns=NAME:.metadata.name`` /
+        # ``aws --query 'Reservations[].Instances[].InstanceId'``:
+        # a comma-separated list of history fields prints only
+        # those fields and nothing else, separated by tabs the
+        # way ``--format`` / ``-o``-style renderers do. The
+        # header line names the columns so a host piping into
+        # ``awk '{print $1}'`` or ``column -t`` can pick a
+        # column by name. Missing or empty fields render as
+        # ``-`` so the columns line up.
+        selected = [f.strip() for f in fields.split(",") if f.strip()]
+        if not selected:
+            selected = ["next"]
+        print("\t".join(selected))
+        for row in hist:
+            cells = []
+            for f in selected:
+                value = row.get(f)
+                cells.append(str(value) if value else "-")
+            print("\t".join(cells))
+        return 0
+    label = "── j-space ─ history (%d entries" % len(hist)
+    if since_seconds is not None and since_seconds >= 0:
+        label += ", last %d s" % since_seconds
+    if grep_text:
+        label += ", grep %r" % grep_text
+    if getattr(args, "reverse", False):
+        label += ", newest first"
+    print(label + ")")
+    for index, row in enumerate(hist, 1):
+        ts = row.get("t")
+        when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) \
+            if ts else "(no timestamp)"
+        nxt = row.get("next") or "(empty)"
+        verified = row.get("verified", 0)
+        opens = row.get("open", 0)
+        print("  %3d  %s  v=%d o=%d  %s" % (index, when, verified, opens, nxt))
+    return 0
+
+
+def mode_info(book, json_flag=False, warnings_only=False):
+    """Print or emit a digest of the workspace state.
+
+    Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
+    ``cargo metadata`` pattern: an aggregate read-only subcommand that
+    lets a host or human inspect controller state without taking a
+    seam's side effects. Text mode prints a short sectioned report; the
+    ``--json`` flag emits a machine-readable payload that mirrors the
+    text one for one, just as ``seam --json`` does. ``--warnings-only``
+    borrows ``gh run list --state failed`` /
+    ``kubectl get --field-selector status=Failed`` / the
+    ``docker ps --filter`` family — print only the warning lines, the
+    way a CI hook would when it just wants to know whether the
+    workspace is healthy enough to advance.
+    """
+    hist = read_history()
+    goal = one(book, "Goal")
+    nxt = one(book, "Next")
+    last_seam_t = hist[-1]["t"] if hist else None
+    now = int(time.time())
+    gap_seconds = (now - last_seam_t) if last_seam_t is not None else None
+    payload = {
+        "ledger": {
+            "goal": goal or None,
+            "core_count": len(book.get("Core", [])),
+            "verified_count": len(book.get("Verified", [])),
+            "open_count": len(book.get("Open", [])),
+            "next": nxt or None,
+        },
+        "history_count": len(hist),
+        "last_seam": {
+            "t": last_seam_t,
+            "gap_seconds": gap_seconds,
+            "long_gap": bool(gap_seconds is not None and gap_seconds > RESUME_GAP),
+        },
+        "warnings": _info_warnings(book, hist, gap_seconds),
+    }
+    if warnings_only:
+        # The ``--warnings-only`` path is independent of ``--json``:
+        # a host can ask for ``--json --warnings-only`` and the JSON
+        # payload still contains the full key set, with the warning
+        # list — the flag only trims the text renderer. Below, we
+        # keep both code paths identical except for the text
+        # shortening.
+        if json_flag:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+        for warning in payload["warnings"]:
+            print("Warning: " + warning)
+        return 0
+    if json_flag:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    print("── j-space ─ info")
+    print()
+    print("Ledger:")
+    print("  Goal:     %s" % (goal or "(not set)"))
+    print("  Core:     %d" % payload["ledger"]["core_count"])
+    print("  Verified: %d" % payload["ledger"]["verified_count"])
+    print("  Open:     %d" % payload["ledger"]["open_count"])
+    print("  Next:     %s" % (nxt or "(not set)"))
+    print()
+    print("History: %d entries" % len(hist))
+    if last_seam_t is None:
+        print("Last seam: never")
+    else:
+        print("Last seam: %d seconds ago%s" % (
+            gap_seconds, " (long gap)" if gap_seconds > RESUME_GAP else ""))
+    for warning in payload["warnings"]:
+        print()
+        print("Warning: " + warning)
+    return 0
+
+
+def _info_warnings(book, hist, gap_seconds):
+    """Collect the human-meaningful alerts the ``info`` digest surfaces.
+
+    Kept separate from the renderer so the JSON payload can carry the
+    same list, and so adding a new warning is a one-liner instead of a
+    branch in the text path.
+    """
+    out = []
+    if not one(book, "Goal"):
+        out.append("no goal set — open a ledger with `note --goal ... --next ...`")
+    if not one(book, "Next"):
+        out.append("next action is not set")
+    if not hist:
+        out.append("no seams recorded yet — the first seam will populate the digest")
+    elif gap_seconds is not None and gap_seconds > RESUME_GAP:
+        out.append("last seam is older than the resume gap (run `resume`)")
+    return out
 
 
 def mode_note(book, args):
@@ -690,11 +1113,16 @@ def claim_without_coverage(lines):
     return flush()
 
 
-def mode_ship(text):
+def mode_ship(text, strict=False):
     """Report inner-register leakage in outgoing text.
 
-    A report, not a gate: it exits 0 whether or not it finds anything, because
-    the caller asked it to look and it looked.
+    A report, not a gate by default: it exits 0 whether or not it finds
+    anything, because the caller asked it to look and it looked. With
+    ``--strict``, the exit code mirrors the ESLint ``--max-warnings`` /
+    RuboCop ``Lint/`` / myPy ``--strict`` convention: a non-zero exit
+    on the first finding turns the report into an enforcement gate,
+    which is the right behaviour for CI hooks and pre-commit
+    pipelines that should refuse to ship a register leak.
     """
     findings = []
     lines = text.splitlines()
@@ -736,6 +1164,10 @@ def mode_ship(text):
         print("· " + f)
     print()
     print("Expand the whole span into clean language before it ships. The switch is total, never cosmetic.")
+    if strict:
+        # Match the exit code 2 used everywhere else for "could not do
+        # what was asked" — the leak was found, so shipping failed.
+        return 2
     return 0
 
 
@@ -787,7 +1219,13 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("seam", help="the ledger, and what has and has not moved")
+    sm = sub.add_parser("seam", help="the ledger, and what has and has not moved")
+    sm.add_argument("--json", action="store_true",
+                    help="emit machine-readable output for the discoverability layer")
+    sm.add_argument("--dry-run", dest="dry_run", action="store_true",
+                    help="run the analysis without appending to history.json (like terraform plan)")
+    sm.add_argument("--quiet", dest="quiet", action="store_true",
+                    help="suppress banner, ledger, telemetry, trend, remediation and heal; print only the observation facts (like pytest -q)")
     sub.add_parser("resume", help="premise, invariants and full ledger, after a gap")
 
     n = sub.add_parser("note", help="record something in the ledger")
@@ -803,6 +1241,62 @@ def main(argv=None):
 
     s = sub.add_parser("ship", help="register check on anything about to leave")
     s.add_argument("file", help="path, or - for stdin")
+    s.add_argument("--strict", action="store_true",
+                   help="exit non-zero when a finding is reported (CI gate)")
+
+    info_p = sub.add_parser(
+        "info", help="print an aggregate digest of the workspace state")
+    info_p.add_argument(
+        "--json", action="store_true",
+        help="emit machine-readable output for the discoverability layer")
+    info_p.add_argument(
+        "--warnings-only", dest="warnings_only", action="store_true",
+        help="print only the warning lines (like gh run list --state failed)")
+
+    hist_p = sub.add_parser(
+        "history", help="tail the seam audit log")
+    hist_p.add_argument(
+        "-n", "--limit", dest="limit", type=int, default=None,
+        help="print only the most recent N entries (alias of --tail, like git log -n)")
+    hist_p.add_argument(
+        "--tail", dest="tail", type=int, default=None,
+        help="print only the most recent N entries (like tail -n N)")
+    hist_p.add_argument(
+        "--head", dest="head", type=int, default=None,
+        help="print only the first N entries (like head -n N)")
+    hist_p.add_argument(
+        "--json", action="store_true",
+        help="emit machine-readable output for the discoverability layer")
+    hist_p.add_argument(
+        "--reverse", action="store_true",
+        help="show oldest first (like git log --reverse), default is newest first")
+    hist_p.add_argument(
+        "--since", dest="since", type=int, default=None,
+        help="keep only rows from the last N seconds (like docker logs --since 30m)")
+    hist_p.add_argument(
+        "--grep", dest="grep", default=None,
+        help="keep only rows whose next action contains TEXT (like git log --grep)")
+    hist_p.add_argument(
+        "--quiet", dest="quiet", action="store_true",
+        help="print only the next action of each row, one per line (like git log --oneline)")
+    hist_p.add_argument(
+        "-c", "--count", dest="count", action="store_true",
+        help="print only the row count (like wc -l, like git rev-list --count)")
+    hist_p.add_argument(
+        "--first-match", dest="first_match", action="store_true",
+        help="stop after the first matching row (like grep -m 1 / ripgrep --max-count=1)")
+    hist_p.add_argument(
+        "--fields", dest="fields", default=None,
+        help="comma-separated list of history fields to print (like docker ps --format)")
+    hist_p.add_argument(
+        "--csv", dest="csv", action="store_true",
+        help="emit history as CSV (like aws --output csv, PowerShell ConvertTo-Csv)")
+    hist_p.add_argument(
+        "--domains", dest="domains", action="store_true",
+        help="group history by next-action domain prefix, the way JIT-Agent factors memory/planning/action/capability")
+    hist_p.add_argument(
+        "--span", dest="span", action="store_true",
+        help="print the first-seam, last-seam and duration of the window (like git log --stat / journalctl --list-boots)")
 
     args = p.parse_args(argv)
 
@@ -821,7 +1315,7 @@ def main(argv=None):
             print("CANNOT: " + problem + ".")
             print("  pass a readable file, or - to read stdin")
             return 2
-        return mode_ship(text)
+        return mode_ship(text, strict=getattr(args, "strict", False))
 
     try:
         book = read_ledger()
@@ -830,9 +1324,22 @@ def main(argv=None):
         print("  repair or remove .jspace/WORKSPACE.md before recording more state")
         return 2
     if args.cmd == "seam":
-        return mode_seam(book)
+        return mode_seam(
+            book,
+            json_flag=getattr(args, "json", False),
+            dry_run=getattr(args, "dry_run", False),
+            quiet=getattr(args, "quiet", False),
+        )
     if args.cmd == "resume":
         return mode_resume(book)
+    if args.cmd == "info":
+        return mode_info(
+            book,
+            json_flag=getattr(args, "json", False),
+            warnings_only=getattr(args, "warnings_only", False),
+        )
+    if args.cmd == "history":
+        return mode_history(args)
     return mode_note(book, args)
 
 

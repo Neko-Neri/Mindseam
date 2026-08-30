@@ -184,6 +184,8 @@ The left column describes what it looks like from the inside, not what it is cal
 | The chain is long enough that writing it in sentences is now the slow part | `modules/shorthand.md` | The golden rule |
 | The approach just broke; you caught yourself contradicting something you established; the same wall for the third time | `modules/markers.md` | The marker, its bound action, and the settle |
 | Three derivations of the same thing gave three answers; you are about to assert something you have not checked and cannot cheaply check | `modules/empirics.md` | The named unknown |
+| You are about to call something verified without an independent signal, or a generator's self-assessment is standing in for evidence | `modules/verification-gate.md` | The named verifier and its external signal |
+| The task will outlive this session or this directory; state must cross a gap the page cannot bridge | `modules/persistence.md` | The five ledger lines to mirror |
 
 Deeper material, when a module is not enough: `references/j-space-science.md` (the evidence
 base), `references/induction-playbook.md` (the techniques and their scripts),
@@ -236,14 +238,45 @@ interpreter, invoke the script by that path, and keep the task workspace as the 
 That keeps `.jspace/` with the task rather than with the skill.
 
 ```
-<python-command> <skill-root>/scripts/jspace.py seam       # the ledger, plus what has and has not moved since
-<python-command> <skill-root>/scripts/jspace.py note --goal "..." --next "..."  # open the ledger
-<python-command> <skill-root>/scripts/jspace.py note --next "..."  # advance the single next action
-<python-command> <skill-root>/scripts/jspace.py note --check "..." --by "verifier and coverage"  # checkpoint
-<python-command> <skill-root>/scripts/jspace.py note --open "..." --settled-by "..."  # open a question
-<python-command> <skill-root>/scripts/jspace.py note --close 1 --check "..." --by "verifier and coverage"  # close it
-<python-command> <skill-root>/scripts/jspace.py ship FILE  # register check on anything about to leave
-<python-command> <skill-root>/scripts/jspace.py resume     # premise, invariants and full ledger, after a gap
+<python-command> <skill-root>/scripts/jspace.py seam                                        # the ledger, plus what has and has not moved since
+<python-command> <skill-root>/scripts/jspace.py seam --json                                 # the same report, machine-readable JSON
+<python-command> <skill-root>/scripts/jspace.py seam --dry-run                                # preview a seam without writing history.json (like terraform plan)
+<python-command> <skill-root>/scripts/jspace.py seam --quiet                                  # print only the observation facts, one per line (like pytest -q)
+<python-command> <skill-root>/scripts/jspace.py info                                       # aggregate digest of the workspace state
+<python-command> <skill-root>/scripts/jspace.py info --json                                # same digest, machine-readable JSON
+<python-command> <skill-root>/scripts/jspace.py info --warnings-only                     # print only the warning lines (like gh run list --state failed)
+<python-command> <skill-root>/scripts/jspace.py history                                    # tail the seam audit log (like git log)
+<python-command> <skill-root>/scripts/jspace.py history --head 5                                # first 5 entries only (like head -n 5)
+<python-command> <skill-root>/scripts/jspace.py history --tail 5                                # last 5 entries only (like tail -n 5, alias of -n)
+<python-command> <skill-root>/scripts/jspace.py history -c                                  # print only the row count (like wc -l)
+<python-command> <skill-root>/scripts/jspace.py history --first-match                       # stop after the first matching row (like grep -m 1)
+<python-command> <skill-root>/scripts/jspace.py history --fields next                   # print only the listed fields, tab-separated (like docker ps --format)
+<python-command> <skill-root>/scripts/jspace.py history --csv                           # emit the history as CSV (like aws --output csv)
+<python-command> <skill-root>/scripts/jspace.py history --domains                     # group by the next-action domain prefix (like JIT-Agent's diversity analysis)
+<python-command> <skill-root>/scripts/jspace.py history --span                        # first seam, last seam and duration (like git log --stat)
+<python-command> <skill-root>/scripts/jspace.py history --grep TODO                       # entries whose next action contains TODO (like git log --grep)
+<python-command> <skill-root>/scripts/jspace.py history --quiet                            # one line per row, just the next action (like git log --oneline)
+<python-command> <skill-root>/scripts/jspace.py history --since 3600                    # entries from the last hour (like docker logs --since 30m)
+<python-command> <skill-root>/scripts/jspace.py history --reverse                       # newest first (like git log --reverse)
+<python-command> <skill-root>/scripts/jspace.py history --json                            # machine-readable tail
+<python-command> <skill-root>/scripts/jspace.py note --goal "..." --next "..."                  # open the ledger
+<python-command> <skill-root>/scripts/jspace.py note --next "..."                                # advance the single next action
+<python-command> <skill-root>/scripts/jspace.py note --core "..."                                # add a hub entry
+<python-command> <skill-root>/scripts/jspace.py note --core "..." --core-slot 1                  # swap a live hub entry
+<python-command> <skill-root>/scripts/jspace.py note --check "..." --by "verifier"               # checkpoint
+<python-command> <skill-root>/scripts/jspace.py note --open "..." --settled-by "..."             # open a question
+<python-command> <skill-root>/scripts/jspace.py note --close 1 --check "..." --by "..."          # close it
+<python-command> <skill-root>/scripts/jspace.py note --marker OPEN --confidence strong --verifier "command exit 0"           # tag the seam's state
+<python-command> <skill-root>/scripts/jspace.py note --error "domain: what broke" --outcome "ok" --extra-steps 2  # record the step's truth
+<python-command> <skill-root>/scripts/jspace.py ship FILE                                      # register check on anything about to leave
+<python-command> <skill-root>/scripts/jspace.py ship FILE --strict                              # same check, non-zero exit on completion-gate failures
+<python-command> <skill-root>/scripts/jspace.py resume                                           # premise, invariants and full ledger, after a gap
+<python-command> <skill-root>/scripts/jspace.py skillbook                                       # recurring patterns extracted from history
+<python-command> <skill-root>/scripts/jspace.py skillbook --json                                 # same, machine-readable JSON
+<python-command> <skill-root>/scripts/jspace.py info                                              # what the suite has learned about this workspace
+<python-command> <skill-root>/scripts/jspace.py info --json                                       # same, machine-readable JSON
+<python-command> <skill-root>/scripts/jspace.py discover                                          # modules / domains selected for the next pass
+<python-command> <skill-root>/scripts/jspace.py discover --json                                   # same, machine-readable JSON
 ```
 
 The commands are named for moments, not for passes, so this is the mapping — a lookup, not a
