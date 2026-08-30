@@ -923,6 +923,67 @@ class HistorySubcommandTests(unittest.TestCase):
         # The full rows are still present, unchanged.
         self.assertEqual(len(payload["rows"]), 2)
 
+    def test_history_keep_truncates_to_last_n(self):
+        # Borrowed from ``logrotate --keep N`` /
+        # ``docker system prune --filter 'until=Nh'``: discard
+        # rows older than the last N, and persist the slimmed
+        # file. A subsequent ``history`` call sees the slimmed
+        # state, the way a logrotate run would leave the file
+        # in its new shape.
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta", "dom: gamma",
+                    "dom: delta", "dom: epsilon"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        # Trim to the last 2 rows: ``delta`` and ``epsilon``.
+        r = _invoke(["history", "--keep", "2", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 2)
+        nexts = [row["next"] for row in payload["rows"]]
+        self.assertEqual(nexts, ["dom: delta", "dom: epsilon"])
+        # The on-disk file is also slimmed: a follow-up
+        # ``history`` call sees only the survivors.
+        r = _invoke(["history", "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 2)
+
+    def test_history_keep_with_zero_is_a_no_op(self):
+        # ``--keep 0`` keeps zero rows; the file becomes an empty
+        # list. ``logrotate`` treats this the same way.
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--keep", "0", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 0)
+        # The on-disk file is also empty.
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        self.assertEqual(json.loads(history.read_text(encoding="utf-8")),
+                         [])
+
+    def test_history_keep_smaller_than_total_is_a_no_op(self):
+        # If the file already has fewer rows than ``--keep`` asks
+        # for, the file is left alone: ``--keep 100`` on a
+        # 2-row history is a no-op, the way logrotate's
+        # ``--keep 100`` on a 2-row log is.
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--keep", "100", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 2)
+        nexts = [row["next"] for row in payload["rows"]]
+        self.assertEqual(nexts, ["dom: alpha", "dom: beta"])
+
     def test_history_since_drops_only_ancient_rows(self):
         # A very large ``--since`` window keeps the ancient row,
         # because the cutoff (now - very_large) lands before the

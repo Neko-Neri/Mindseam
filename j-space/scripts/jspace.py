@@ -533,7 +533,28 @@ def mode_history(args):
     ``docker logs | grep ERROR`` — keep only the rows whose next
     action matches a substring, so a host can scope the audit
     log to a specific topic.
+    ``--keep N`` borrows ``logrotate --keep N`` /
+    ``docker system prune --filter 'until=24h'`` /
+    ``journalctl --vacuum-time=2weeks``: discard rows older than
+    the last N, and persist the truncated history back to disk
+    so the next invocation sees the slimmed file. The render
+    flag is the destructive part: ``--keep`` is a write, the
+    others are reads.
     """
+    keep_n = getattr(args, "keep", None)
+    if keep_n is not None and keep_n >= 0 and len(read_history()) > keep_n:
+        # Persist the truncated history to disk first, then work
+        # from the in-memory slice so the rest of the filters
+        # see the slimmed window without re-reading.
+        keep_n = int(keep_n)
+        full = read_history()
+        truncated = full[-keep_n:] if keep_n > 0 else []
+        problem = atomic_write_text(
+            HISTORY, json.dumps(truncated, ensure_ascii=False))
+        if problem:
+            print("WARNING: could not rotate history.json — "
+                  + problem, file=sys.stderr)
+        hist = truncated
     hist = read_history()
     # Borrowed from ``head -n N`` / ``tail -n N``: ``--head N`` keeps
     # the first N rows, ``--tail N`` keeps the last N. ``-n N`` /
@@ -1420,6 +1441,9 @@ def main(argv=None):
     hist_p.add_argument(
         "--until", dest="until", type=int, default=None,
         help="drop rows newer than N seconds ago (like git log --until, the upper bound on --since)")
+    hist_p.add_argument(
+        "--keep", dest="keep", type=int, default=None,
+        help="discard rows older than the last N and persist the slimmed history (like logrotate --keep, docker system prune)")
     hist_p.add_argument(
         "--quiet", dest="quiet", action="store_true",
         help="print only the next action of each row, one per line (like git log --oneline)")

@@ -260,6 +260,7 @@ That keeps `.jspace/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/jspace.py history --grep TODO                       # entries whose next action contains TODO (like git log --grep)
 <python-command> <skill-root>/scripts/jspace.py history --exclude TODO                    # drop rows whose next or msg contains TODO (like git log --invert-grep)
 <python-command> <skill-root>/scripts/jspace.py history --until 3600                    # drop rows newer than 1 hour (like git log --until, the upper bound on --since)
+<python-command> <skill-root>/scripts/jspace.py history --keep 500                      # discard older rows and persist the slimmed file (like logrotate --keep, docker system prune)
 <python-command> <skill-root>/scripts/jspace.py history --quiet                            # one line per row, just the next action (like git log --oneline)
 <python-command> <skill-root>/scripts/jspace.py history --since 3600                    # entries from the last hour (like docker logs --since 30m)
 <python-command> <skill-root>/scripts/jspace.py history --reverse                       # newest first (like git log --reverse)

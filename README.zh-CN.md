@@ -158,6 +158,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 <python-command> <skill-root>/scripts/jspace.py history --grep TODO
 <python-command> <skill-root>/scripts/jspace.py history --exclude TODO
 <python-command> <skill-root>/scripts/jspace.py history --until 3600
+<python-command> <skill-root>/scripts/jspace.py history --keep 500
 <python-command> <skill-root>/scripts/jspace.py history --quiet
 <python-command> <skill-root>/scripts/jspace.py history --since 3600
 <python-command> <skill-root>/scripts/jspace.py history --reverse
