@@ -136,6 +136,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 <python-command> <skill-root>/scripts/jspace.py seam --dry-run
 <python-command> <skill-root>/scripts/jspace.py seam --quiet
 <python-command> <skill-root>/scripts/jspace.py seam --message "TICKET-101"
+<python-command> <skill-root>/scripts/jspace.py seam --from-stdin
 <python-command> <skill-root>/scripts/jspace.py ship OUTPUT_FILE
 <python-command> <skill-root>/scripts/jspace.py resume
 <python-command> <skill-root>/scripts/jspace.py skillbook

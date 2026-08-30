@@ -379,7 +379,8 @@ def print_reentry(book, heading):
     )
 
 
-def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None):
+def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None,
+            from_stdin=False):
     """Run a seam: re-anchor, record a history row, surface observations.
 
     ``--quiet`` borrows the ``pytest -q`` / ``cargo --quiet`` /
@@ -391,14 +392,46 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None):
     block, the heal list and the next-empty reminder; it leaves
     only the facts, one per line, in the order ``observations``
     produced them. ``--json`` and ``--quiet`` are independent
-    (a host can ask for machine-readable output does not need
+    (a host that wants machine-readable output does not need
     quiet, and a human reading JSON does not need quiet either).
     ``--message`` borrows ``git commit -m`` /
     ``kubectl annotate`` / ``docker commit -m``: attach a
     human-meaningful annotation to the recorded row so the audit
     log carries not just the next action but the reason the
-    model picked it.
+    model picked it. ``--from-stdin`` borrows ``kubectl apply -f
+    -`` / ``xargs cmd`` / ``docker compose -f -``: read one
+    next action per line from standard input, recording a row
+    for each. A host that batches several seam calls into one
+    process invocation gets a single history rotation.
     """
+    extra_nexts = []
+    if from_stdin:
+        # Borrowed from ``kubectl apply -f -`` / ``xargs cmd``:
+        # read one next action per non-empty line from standard
+        # input, the way ``xargs`` / ``git am --stdin`` /
+        # ``apt-get -y install`` all expect their argument lists
+        # to be line-delimited. Each line becomes one row in
+        # ``history.json`` in append order, with the same
+        # ``--message`` (if any) attached to every row so the
+        # audit log carries a single annotation that spans the
+        # batch. The renderers (``--json``, ``--quiet``) and
+        # filters (``--dry-run``) compose with the batch, the
+        # way they compose on the single-row path.
+        try:
+            stream = getattr(sys.stdin, "buffer", None)
+            raw = (stream.read() if stream is not None
+                    else sys.stdin.read().encode("utf-8"))
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+        except OSError as exc:
+            print("CANNOT: could not read stdin for --from-stdin ("
+                  + (exc.strerror or "unknown error") + ").",
+                  file=sys.stderr)
+            return 2
+        for line in raw.splitlines():
+            nxt = line.strip()
+            if nxt:
+                extra_nexts.append(nxt)
     hist = read_history()
     gap = int(time.time()) - hist[-1]["t"] if hist else 0
     if not (json_flag or quiet):
@@ -415,23 +448,36 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None):
     # but ``append_history`` is skipped so ``.jspace/history.json`` does
     # not gain a row. CI hooks use this to preview what a seam would
     # record without committing the row.
+    rows_written = 0
     if not dry_run:
-        hist = append_history(book)
-        if message and hist:
-            # Borrowed from ``git commit -m`` /
-            # ``kubectl annotate`` / ``docker commit -m``: the
-            # recorded row gains an optional ``msg`` field. A
-            # subsequent ``--fields msg`` will surface it, and
-            # ``--grep MSG`` will substring-match the annotation
-            # the way it substring-matches the next action. The
-            # field is optional: existing rows without ``msg`` are
-            # still readable and still match the rendered output.
-            hist[-1]["msg"] = message
-            problem = atomic_write_text(
-                HISTORY, json.dumps(hist, ensure_ascii=False))
-            if problem:
-                print("WARNING: could not write seam message — "
-                      + problem, file=sys.stderr)
+        nexts_to_record = extra_nexts if extra_nexts else [None]
+        for next_value in nexts_to_record:
+            if next_value is not None:
+                book["Next"] = [next_value]
+            # Read the history fresh each iteration so the
+            # ``hist[-1]`` we annotate is the row we just wrote,
+            # not the row that pre-dated this batch. Without
+            # this, only the last row in a from-stdin batch
+            # carries the ``--message`` annotation, the way
+            # ``git rebase`` without ``--update-refs`` only
+            # annotates the last commit.
+            hist = append_history(book)
+            if message and hist:
+                # Borrowed from ``git commit -m`` /
+                # ``kubectl annotate`` / ``docker commit -m``: the
+                # recorded row gains an optional ``msg`` field. A
+                # subsequent ``--fields msg`` will surface it, and
+                # ``--grep MSG`` will substring-match the annotation
+                # the way it substring-matches the next action. The
+                # field is optional: existing rows without ``msg`` are
+                # still readable and still match the rendered output.
+                hist[-1]["msg"] = message
+                problem = atomic_write_text(
+                    HISTORY, json.dumps(hist, ensure_ascii=False))
+                if problem:
+                    print("WARNING: could not write seam message — "
+                          + problem, file=sys.stderr)
+            rows_written += 1
     found = observations(hist)
     if json_flag:
         payload = _seam_json_payload(book, hist, found, gap)
@@ -441,6 +487,12 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None):
         if message and not dry_run and hist:
             payload.setdefault("warnings", []).append(
                 "message: %s" % message)
+        if extra_nexts:
+            payload.setdefault("warnings", []).append(
+                "from-stdin: %d next actions recorded" % len(extra_nexts))
+        elif from_stdin:
+            payload.setdefault("warnings", []).append(
+                "from-stdin: 0 next actions recorded")
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
     if quiet:
@@ -463,6 +515,10 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None):
     if message and not dry_run:
         print()
         print("Message:   " + message)
+    if extra_nexts and not dry_run:
+        print()
+        print("From stdin: %d next action%s recorded."
+              % (rows_written, "" if rows_written == 1 else "s"))
     if dry_run:
         print()
         print("dry-run: history.json was not updated.")
@@ -1612,6 +1668,8 @@ def main(argv=None):
                     help="suppress banner, ledger, telemetry, trend, remediation and heal; print only the observation facts (like pytest -q)")
     sm.add_argument("--message", "--msg", dest="message", default=None,
                     help="attach a human-meaningful annotation to the recorded row (like git commit -m / kubectl annotate)")
+    sm.add_argument("--from-stdin", dest="from_stdin", action="store_true",
+                    help="read one next action per line from standard input (like kubectl apply -f - / xargs)")
     sub.add_parser("resume", help="premise, invariants and full ledger, after a gap")
 
     n = sub.add_parser("note", help="record something in the ledger")
@@ -1752,6 +1810,7 @@ def main(argv=None):
             dry_run=getattr(args, "dry_run", False),
             quiet=getattr(args, "quiet", False),
             message=getattr(args, "message", None),
+            from_stdin=getattr(args, "from_stdin", False),
         )
     if args.cmd == "resume":
         return mode_resume(book)

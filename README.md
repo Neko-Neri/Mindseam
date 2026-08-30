@@ -138,6 +138,7 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/jspace.py seam --dry-run
 <python-command> <skill-root>/scripts/jspace.py seam --quiet
 <python-command> <skill-root>/scripts/jspace.py seam --message "TICKET-101"
+<python-command> <skill-root>/scripts/jspace.py seam --from-stdin
 <python-command> <skill-root>/scripts/jspace.py ship OUTPUT_FILE
 <python-command> <skill-root>/scripts/jspace.py resume
 <python-command> <skill-root>/scripts/jspace.py skillbook
