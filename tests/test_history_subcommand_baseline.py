@@ -861,6 +861,68 @@ class HistorySubcommandTests(unittest.TestCase):
         self.assertNotIn("TICKET-101: add cache", surviving)
         self.assertNotIn("TICKET-101: remove dead code", surviving)
 
+    def test_history_format_substitutes_placeholders(self):
+        # Borrowed from ``git log --format='%h %s'`` /
+        # ``docker ps --format '{{.Names}}'`` /
+        # ``kubectl get -o custom-columns``: a per-row template
+        # where each placeholder is replaced with the value of
+        # the row's field. Available placeholders are
+        # ``%t`` (timestamp), ``%n`` (next action),
+        # ``%m`` (message), ``%v`` (verified count),
+        # ``%o`` (open count), ``%h`` (row index, 1-based).
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--format", "%h %n"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        lines = r.stdout.splitlines()
+        self.assertEqual(len(lines), 2)
+        # ``%h`` is the 1-based row index; ``%n`` is the next.
+        self.assertTrue(lines[0].startswith("1 "),
+                        "first line: %r" % lines[0])
+        self.assertIn("dom: alpha", lines[0])
+        self.assertTrue(lines[1].startswith("2 "),
+                        "second line: %r" % lines[1])
+        self.assertIn("dom: beta", lines[1])
+
+    def test_history_format_handles_literal_percent(self):
+        # A literal ``%`` is rendered as ``%``, the way the
+        # standard ``printf`` convention works. A host that
+        # embeds ``100%`` in a template renders the digits
+        # followed by a percent sign, with no missing field.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--format", "100%% %n"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        line = r.stdout.splitlines()[0]
+        self.assertTrue(line.startswith("100% "),
+                        "expected literal percent, got: %r" % line)
+
+    def test_history_format_json_round_trip(self):
+        # ``--format`` is a renderer, not a transformer: the
+        # plain ``--json`` path still exposes the original rows
+        # under ``rows`` and the rendered lines under ``lines``,
+        # so a host that wants both can read them in one pass.
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--format", "%n", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 2)
+        # The rendered lines are the next actions, one per row.
+        self.assertEqual(
+            [row["next"] for row in payload["rows"]],
+            ["dom: alpha", "dom: beta"],
+        )
+        # The full rows are still present, unchanged.
+        self.assertEqual(len(payload["rows"]), 2)
+
     def test_history_since_drops_only_ancient_rows(self):
         # A very large ``--since`` window keeps the ancient row,
         # because the cutoff (now - very_large) lands before the

@@ -752,6 +752,66 @@ def mode_history(args):
         print(len(hist))
         return 0
     fields = getattr(args, "fields", None)
+    format_template = getattr(args, "format", None)
+    if format_template:
+        # Borrowed from ``git log --format='%h %s'`` /
+        # ``docker ps --format '{{.Names}}'`` /
+        # ``kubectl get -o custom-columns=NAME:.metadata.name``:
+        # a per-row template where each ``%X`` placeholder is
+        # replaced with the value of field ``X`` for that row.
+        # ``%t`` is the timestamp, ``%n`` is the next action
+        # (also ``%next`` for symmetry with the other long
+        # placeholders), ``%m`` is the message annotation,
+        # ``%v`` is the verified count, ``%o`` is the open count,
+        # ``%h`` is the row index (1-based, the way ``git log``
+        # numbers commits). A literal ``%`` is rendered as
+        # ``%%``, the way the standard ``printf`` convention
+        # works. The header line is omitted: ``--format`` is the
+        # shape-only renderer, borrowed from ``git log --no-header`` /
+        # ``docker ps --no-trunc``. ``--csv`` / ``--fields``
+        # give the host the header-bearing and comma-bearing
+        # forms respectively.
+        if args.json:
+            rendered = []
+            for index, row in enumerate(hist, 1):
+                line = format_template
+                line = line.replace("%%", "\x00PCT\x00")
+                for short, value in (
+                    ("t", str(row.get("t") or "-")),
+                    ("n", str(row.get("next") or "-")),
+                    ("next", str(row.get("next") or "-")),
+                    ("m", str(row.get("msg") or "-")),
+                    ("v", str(row.get("verified") if row.get("verified") is not None else "-")),
+                    ("o", str(row.get("open") if row.get("open") is not None else "-")),
+                    ("h", str(index)),
+                ):
+                    line = line.replace("%" + short, value)
+                line = line.replace("%", "")
+                line = line.replace("\x00PCT\x00", "%")
+                rendered.append(line)
+            print(json.dumps({
+                "history_count": len(hist),
+                "format": format_template,
+                "lines": rendered,
+            }, ensure_ascii=False, indent=2))
+            return 0
+        for index, row in enumerate(hist, 1):
+            line = format_template
+            line = line.replace("%%", "\x00PCT\x00")
+            for short, value in (
+                ("t", str(row.get("t") or "-")),
+                ("n", str(row.get("next") or "-")),
+                ("next", str(row.get("next") or "-")),
+                ("m", str(row.get("msg") or "-")),
+                ("v", str(row.get("verified") if row.get("verified") is not None else "-")),
+                ("o", str(row.get("open") if row.get("open") is not None else "-")),
+                ("h", str(index)),
+            ):
+                line = line.replace("%" + short, value)
+            line = line.replace("%", "")
+            line = line.replace("\x00PCT\x00", "%")
+            print(line)
+        return 0
     if fields:
         # Borrowed from ``docker ps --format '{{.Names}}'`` /
         # ``kubectl get -o custom-columns=NAME:.metadata.name`` /
@@ -1372,6 +1432,14 @@ def main(argv=None):
     hist_p.add_argument(
         "--fields", dest="fields", default=None,
         help="comma-separated list of history fields to print (like docker ps --format)")
+    hist_p.add_argument(
+        "--format", dest="format", default=None,
+        help=("per-row template where placeholders are replaced with "
+              "the row fields. Available placeholders: "
+              "%%t (timestamp), %%n (next action), %%m (message), "
+              "%%v (verified count), %%o (open count), "
+              "%%h (row index, 1-based). "
+              "Example: '%%t %%n' (like git log --format='%%h %%s')."))
     hist_p.add_argument(
         "--csv", dest="csv", action="store_true",
         help="emit history as CSV (like aws --output csv, PowerShell ConvertTo-Csv)")

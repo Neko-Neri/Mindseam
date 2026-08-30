@@ -152,6 +152,7 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/jspace.py history -c
 <python-command> <skill-root>/scripts/jspace.py history --first-match
 <python-command> <skill-root>/scripts/jspace.py history --fields next
+<python-command> <skill-root>/scripts/jspace.py history --format "%h %n"
 <python-command> <skill-root>/scripts/jspace.py history --csv
 <python-command> <skill-root>/scripts/jspace.py history --domains
 <python-command> <skill-root>/scripts/jspace.py history --span

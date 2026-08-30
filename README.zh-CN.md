@@ -150,6 +150,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 <python-command> <skill-root>/scripts/jspace.py history -c
 <python-command> <skill-root>/scripts/jspace.py history --first-match
 <python-command> <skill-root>/scripts/jspace.py history --fields next
+<python-command> <skill-root>/scripts/jspace.py history --format "%h %n"
 <python-command> <skill-root>/scripts/jspace.py history --csv
 <python-command> <skill-root>/scripts/jspace.py history --domains
 <python-command> <skill-root>/scripts/jspace.py history --span

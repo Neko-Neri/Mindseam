@@ -253,6 +253,7 @@ That keeps `.jspace/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/jspace.py history -c                                  # print only the row count (like wc -l)
 <python-command> <skill-root>/scripts/jspace.py history --first-match                       # stop after the first matching row (like grep -m 1)
 <python-command> <skill-root>/scripts/jspace.py history --fields next                   # print only the listed fields, tab-separated (like docker ps --format)
+<python-command> <skill-root>/scripts/jspace.py history --format "%h %n"                # per-row template, placeholders %t/%n/%m/%v/%o/%h (like git log --format)
 <python-command> <skill-root>/scripts/jspace.py history --csv                           # emit the history as CSV (like aws --output csv)
 <python-command> <skill-root>/scripts/jspace.py history --domains                     # group by the next-action domain prefix (like JIT-Agent's diversity analysis)
 <python-command> <skill-root>/scripts/jspace.py history --span                        # first seam, last seam and duration (like git log --stat)
