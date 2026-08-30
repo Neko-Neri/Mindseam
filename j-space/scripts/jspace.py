@@ -553,7 +553,17 @@ def mode_history(args):
     if since_seconds is not None and since_seconds >= 0:
         cutoff = int(time.time()) - since_seconds
         hist = [row for row in hist if int(row.get("t") or 0) >= cutoff]
+    until_seconds = getattr(args, "until", None)
+    if until_seconds is not None and until_seconds >= 0:
+        # Borrowed from ``git log --until="2024-01-01"``: the
+        # upper bound on the time window. ``--since`` keeps the
+        # fresh rows; ``--until`` drops the fresh ones. Together
+        # they bracket a window, the way the same flags do on
+        # ``docker logs``, ``journalctl`` and ``find -newer``.
+        cutoff = int(time.time()) - until_seconds
+        hist = [row for row in hist if int(row.get("t") or 0) <= cutoff]
     grep_text = getattr(args, "grep", None)
+    exclude_text = getattr(args, "exclude", None)
     if grep_text:
         # Borrowed from ``git log --grep``: substring match on the
         # next action, which is the only field a host reads.
@@ -566,6 +576,17 @@ def mode_history(args):
         hist = [row for row in hist
                 if needle in (row.get("next") or "").lower()
                 or needle in (row.get("msg") or "").lower()]
+    if exclude_text:
+        # Borrowed from ``git log --invert-grep`` /
+        # ``find -not -name PATTERN``: a substring that, when
+        # present in ``next`` or ``msg``, removes the row from
+        # the result set. ``--grep`` and ``--exclude`` compose,
+        # the way the two flags do on ``git log``: apply ``--grep``
+        # first, then drop anything that matches ``--exclude``.
+        needle = exclude_text.lower()
+        hist = [row for row in hist
+                if needle not in (row.get("next") or "").lower()
+                and needle not in (row.get("msg") or "").lower()]
     if getattr(args, "reverse", False):
         # Borrowed from ``git log --reverse``: the default ``history``
         # walks the file in append order (oldest first) because
@@ -1333,6 +1354,12 @@ def main(argv=None):
     hist_p.add_argument(
         "--grep", dest="grep", default=None,
         help="keep only rows whose next action contains TEXT (like git log --grep)")
+    hist_p.add_argument(
+        "--exclude", dest="exclude", default=None,
+        help="drop rows whose next action or msg contains TEXT (like git log --invert-grep)")
+    hist_p.add_argument(
+        "--until", dest="until", type=int, default=None,
+        help="drop rows newer than N seconds ago (like git log --until, the upper bound on --since)")
     hist_p.add_argument(
         "--quiet", dest="quiet", action="store_true",
         help="print only the next action of each row, one per line (like git log --oneline)")

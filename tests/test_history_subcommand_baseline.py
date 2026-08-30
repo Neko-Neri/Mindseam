@@ -730,6 +730,137 @@ class HistorySubcommandTests(unittest.TestCase):
         # timeline above (rows 0 and 2).
         self.assertEqual(payload["duration_seconds"], 100)
 
+    def test_history_until_drops_fresh_rows(self):
+        # Borrowed from ``git log --until="2024-01-01"``: the
+        # upper bound on the time window. Rows that landed
+        # within the last ``N`` seconds are dropped; the surviving
+        # window is the rows older than ``now - N``.
+        self._open_ledger()
+        # Hand-write a four-row ledger: a fresh row, a 100s-old
+        # row, a 1000s-old row and a 10000s-old row. ``--until
+        # 500`` drops everything within the last 500s (the fresh
+        # and the 100s row), keeping the 1000s and 10000s rows.
+        now = int(time.time())
+        data = [
+            {"t": now, "next": "dom: fresh", "verified": 0, "open": 0},
+            {"t": now - 100, "next": "dom: medium", "verified": 0, "open": 0},
+            {"t": now - 1000, "next": "dom: old", "verified": 0, "open": 0},
+            {"t": now - 10000, "next": "dom: ancient", "verified": 0, "open": 0},
+        ]
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        history.parent.mkdir(parents=True, exist_ok=True)
+        history.write_text(json.dumps(data), encoding="utf-8")
+        r = _invoke(["history", "--until", "500", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 2)
+        # The fresh and 100s-old rows are dropped; the 1000s and
+        # 10000s rows survive.
+        timestamps = [row["t"] for row in payload["rows"]]
+        self.assertEqual(timestamps[0], now - 1000)
+        self.assertEqual(timestamps[1], now - 10000)
+
+    def test_history_until_and_since_bracket_a_window(self):
+        # ``--since`` and ``--until`` together define a closed
+        # interval, the way ``git log --since --until`` does.
+        # ``--since`` keeps the last ``N`` seconds (``t >= now - N``)
+        # and ``--until`` drops the last ``N`` seconds (``t <= now - N``),
+        # so the bracketed window is ``[until_s, since_s]`` seconds
+        # ago. We build the history relative to a fresh reference
+        # timestamp that ``read_history`` will accept, then compute
+        # the ``--since`` / ``--until`` arguments from the same
+        # reference so the math is exact.
+        self._open_ledger()
+        # Materialise one row first so ``.jspace/history.json`` is
+        # well-formed, then hand-write the full four-row ledger.
+        _invoke(["seam"], cwd=self.workspace)
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        ref = int(time.time()) - 1
+        data = [
+            {"t": ref + 1, "next": "dom: fresh", "verified": 0, "open": 0},
+            {"t": ref - 100, "next": "dom: too-recent", "verified": 0, "open": 0},
+            {"t": ref - 500, "next": "dom: inside", "verified": 0, "open": 0},
+            {"t": ref - 800, "next": "dom: inside", "verified": 0, "open": 0},
+            {"t": ref - 1500, "next": "dom: ancient", "verified": 0, "open": 0},
+        ]
+        history.write_text(json.dumps(data), encoding="utf-8")
+        # The filter evaluates against ``int(time.time())``, which
+        # is essentially ``ref``. ``--since 1000`` keeps the last
+        # 1000s (``t >= ref - 1000``), ``--until 200`` drops the
+        # last 200s (``t <= ref - 200``). The bracketed window is
+        # ``[ref - 1000, ref - 200]``. The 500s and 800s rows
+        # survive, the 0s and 100s rows are dropped by ``--until``,
+        # and the 1500s row is dropped by ``--since``.
+        r = _invoke(
+            ["history", "--since", "1000", "--until", "200",
+             "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        # The bracketed window keeps the 500s and 800s rows.
+        self.assertEqual(payload["history_count"], 2)
+        timestamps = sorted(row["t"] for row in payload["rows"])
+        self.assertEqual(timestamps[0], ref - 800)
+        self.assertEqual(timestamps[1], ref - 500)
+
+    def test_history_exclude_drops_matching_rows(self):
+        # Borrowed from ``git log --invert-grep`` /
+        # ``find -not -name PATTERN``: drop rows whose next or
+        # msg contains TEXT. The remaining window is the inverse
+        # of what ``--grep`` would have produced.
+        self._open_ledger()
+        for nxt in ("dom: TODO add cache", "dom: fix typo",
+                    "dom: TODO dead code"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--exclude", "TODO", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        # Two rows were TODO; ``--exclude`` drops them, leaving
+        # the fix-typo row.
+        self.assertEqual(payload["history_count"], 1)
+        self.assertEqual(payload["rows"][0]["next"], "dom: fix typo")
+
+    def test_history_exclude_and_grep_compose(self):
+        # ``--grep`` first selects a subset, then ``--exclude``
+        # further narrows it, the way the two flags compose on
+        # ``git log``. ``--grep`` substring-matches both ``next``
+        # and ``msg`` (the audit log carries the annotation in
+        # either field), so the bracketing has to keep rows whose
+        # ``msg`` mentions the search term and whose ``next`` does
+        # not mention the exclude term, the way ``git log``
+        # ``--grep``-``--invert-grep`` does.
+        self._open_ledger()
+        rows = [
+            ("dom: TODO add cache", "TICKET-101: add cache"),
+            ("dom: TODO add cache", "drive-by fix"),
+            ("dom: TODO add cache", "TICKET-102: add cache"),
+            ("dom: TODO dead code", "TICKET-101: remove dead code"),
+        ]
+        for nxt, msg in rows:
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            r = _invoke(["seam", "--message", msg], cwd=self.workspace)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        # ``--grep cache`` keeps every row whose ``next`` or
+        # ``msg`` mentions "cache"; all four rows do, so the
+        # grep filter alone matches all four.
+        # ``--exclude TICKET-101`` then drops any row whose
+        # ``next`` or ``msg`` mentions "TICKET-101": the first
+        # and the last row do, so the surviving set is the
+        # middle two.
+        r = _invoke(
+            ["history", "--grep", "cache", "--exclude", "TICKET-101",
+             "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 2)
+        surviving = [row["msg"] for row in payload["rows"]]
+        self.assertIn("drive-by fix", surviving)
+        self.assertIn("TICKET-102: add cache", surviving)
+        self.assertNotIn("TICKET-101: add cache", surviving)
+        self.assertNotIn("TICKET-101: remove dead code", surviving)
+
     def test_history_since_drops_only_ancient_rows(self):
         # A very large ``--since`` window keeps the ancient row,
         # because the cutoff (now - very_large) lands before the

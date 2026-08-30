@@ -157,6 +157,8 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/jspace.py history --span
 <python-command> <skill-root>/scripts/jspace.py history -n 5
 <python-command> <skill-root>/scripts/jspace.py history --grep TODO
+<python-command> <skill-root>/scripts/jspace.py history --exclude TODO
+<python-command> <skill-root>/scripts/jspace.py history --until 3600
 <python-command> <skill-root>/scripts/jspace.py history --quiet
 <python-command> <skill-root>/scripts/jspace.py history --since 3600
 <python-command> <skill-root>/scripts/jspace.py history --reverse
