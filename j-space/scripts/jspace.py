@@ -513,6 +513,38 @@ def mode_resume(book):
     return 0
 
 
+def _humanize_seconds(seconds):
+    """Render a duration in the most natural unit, the way
+    ``git log --relative-date`` does.
+
+    Borrowed from ``humanize``-style renderers: pick the largest
+    unit that produces a value >= 1, then show the integer. The
+    text path of ``info --human`` is the only caller; ``info --json``
+    also exposes the human form under ``payload["human"]["gap_human"]``
+    for hosts that prefer a string.
+    """
+    if seconds is None:
+        return None
+    if seconds < 0:
+        return "in the future"
+    if seconds < 60:
+        return "%d second%s" % (seconds, "" if seconds == 1 else "s")
+    minutes = seconds // 60
+    if minutes < 60:
+        return "%d minute%s" % (minutes, "" if minutes == 1 else "s")
+    hours = minutes // 60
+    if hours < 24:
+        return "%d hour%s" % (hours, "" if hours == 1 else "s")
+    days = hours // 24
+    if days < 30:
+        return "%d day%s" % (days, "" if days == 1 else "s")
+    months = days // 30
+    if months < 12:
+        return "%d month%s" % (months, "" if months == 1 else "s")
+    years = days // 365
+    return "%d year%s" % (years, "" if years == 1 else "s")
+
+
 def mode_history(args):
     """Print the recent seam history.
 
@@ -907,7 +939,8 @@ def mode_history(args):
     return 0
 
 
-def mode_info(book, json_flag=False, warnings_only=False, version_only=False):
+def mode_info(book, json_flag=False, warnings_only=False,
+              version_only=False, human=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -944,6 +977,17 @@ def mode_info(book, json_flag=False, warnings_only=False, version_only=False):
         },
         "warnings": _info_warnings(book, hist, gap_seconds),
     }
+    if human:
+        # Borrowed from ``df -h`` / ``du -h`` / ``ls -lh`` /
+        # ``git log --relative-date``: time spans render in
+        # human-readable units (``2 minutes ago``) instead of
+        # raw seconds (``120 seconds``). The JSON path keeps the
+        # raw number so a host can still compute against it.
+        payload["human"] = {
+            "gap_seconds": gap_seconds,
+            "gap_human": _humanize_seconds(gap_seconds) if gap_seconds is not None else None,
+            "long_gap": bool(gap_seconds is not None and gap_seconds > RESUME_GAP),
+        }
     if warnings_only:
         # The ``--warnings-only`` path is independent of ``--json``:
         # a host can ask for ``--json --warnings-only`` and the JSON
@@ -987,8 +1031,10 @@ def mode_info(book, json_flag=False, warnings_only=False, version_only=False):
     if last_seam_t is None:
         print("Last seam: never")
     else:
-        print("Last seam: %d seconds ago%s" % (
-            gap_seconds, " (long gap)" if gap_seconds > RESUME_GAP else ""))
+        gap_label = _humanize_seconds(gap_seconds) if human else (
+            "%d seconds" % gap_seconds)
+        long_gap_label = " (long gap)" if gap_seconds > RESUME_GAP else ""
+        print("Last seam: %s ago%s" % (gap_label, long_gap_label))
     for warning in payload["warnings"]:
         print()
         print("Warning: " + warning)
@@ -1444,6 +1490,9 @@ def main(argv=None):
     info_p.add_argument(
         "--version", dest="version_only", action="store_true",
         help="print the controller version on its own (like gh --version / kubectl version)")
+    info_p.add_argument(
+        "--human", dest="human", action="store_true",
+        help="render time spans in human-readable units (like df -h / git log --relative-date)")
 
     hist_p = sub.add_parser(
         "history", help="tail the seam audit log")
@@ -1551,6 +1600,7 @@ def main(argv=None):
             json_flag=getattr(args, "json", False),
             warnings_only=getattr(args, "warnings_only", False),
             version_only=getattr(args, "version_only", False),
+            human=getattr(args, "human", False),
         )
     if args.cmd == "history":
         return mode_history(args)

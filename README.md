@@ -146,6 +146,7 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/jspace.py info --json
 <python-command> <skill-root>/scripts/jspace.py info --warnings-only
 <python-command> <skill-root>/scripts/jspace.py info --version
+<python-command> <skill-root>/scripts/jspace.py info --human
 <python-command> <skill-root>/scripts/jspace.py history
 <python-command> <skill-root>/scripts/jspace.py history --head 5
 <python-command> <skill-root>/scripts/jspace.py history --tail 5

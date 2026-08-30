@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -191,6 +192,60 @@ class InfoSubcommandTests(unittest.TestCase):
         r = _invoke(["info"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("Version:", r.stdout)
+
+    def test_info_human_renders_seconds_as_minutes(self):
+        # Borrowed from ``df -h`` / ``git log --relative-date``:
+        # the text path renders time spans in the most natural
+        # unit rather than raw seconds. A 120-second gap shows
+        # as ``2 minutes ago`` rather than ``120 seconds ago``.
+        self._open_ledger()
+        # Materialise one history row and rewind its timestamp so
+        # the gap is exactly 120 seconds.
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        data = json.loads(history.read_text(encoding="utf-8"))
+        data[0]["t"] = int(time.time()) - 120
+        history.write_text(json.dumps(data), encoding="utf-8")
+        r = _invoke(["info", "--human"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        # The text path picks the largest natural unit, ``minutes``
+        # in this case, and the value pluralises when the count
+        # is not 1.
+        self.assertIn("2 minutes ago", r.stdout)
+        self.assertNotIn("120 seconds", r.stdout)
+
+    def test_info_human_renders_seconds_when_below_minute(self):
+        # A 30-second gap stays in seconds, the way ``df -h``
+        # stays in bytes when the value is below 1K.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        data = json.loads(history.read_text(encoding="utf-8"))
+        data[0]["t"] = int(time.time()) - 30
+        history.write_text(json.dumps(data), encoding="utf-8")
+        r = _invoke(["info", "--human"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("30 seconds ago", r.stdout)
+
+    def test_info_human_json_round_trip(self):
+        # The ``--json`` path exposes both the raw ``gap_seconds``
+        # and the human form under ``payload["human"]["gap_human"]``
+        # so a host can pick the shape it needs. The text path
+        # appends `` ago``; the JSON path stays numeric so a host
+        # can compose it as it sees fit.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        data = json.loads(history.read_text(encoding="utf-8"))
+        data[0]["t"] = int(time.time()) - 3600
+        history.write_text(json.dumps(data), encoding="utf-8")
+        r = _invoke(["info", "--human", "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["human"]["gap_seconds"], 3600)
+        self.assertEqual(payload["human"]["gap_human"], "1 hour")
+        # ``last_seam.gap_seconds`` still carries the raw value.
+        self.assertEqual(payload["last_seam"]["gap_seconds"], 3600)
 
 
 if __name__ == "__main__":

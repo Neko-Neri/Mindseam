@@ -144,6 +144,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 <python-command> <skill-root>/scripts/jspace.py info --json
 <python-command> <skill-root>/scripts/jspace.py info --warnings-only
 <python-command> <skill-root>/scripts/jspace.py info --version
+<python-command> <skill-root>/scripts/jspace.py info --human
 <python-command> <skill-root>/scripts/jspace.py history
 <python-command> <skill-root>/scripts/jspace.py history --head 5
 <python-command> <skill-root>/scripts/jspace.py history --tail 5
