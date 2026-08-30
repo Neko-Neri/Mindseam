@@ -984,6 +984,36 @@ def mode_history(args):
                 nxt = row.get("next") or "(empty)"
                 print("  %3d  %s" % (index, nxt))
         return 0
+    if getattr(args, "empty", False):
+        # Borrowed from ``find -empty`` / ``awk '/^$/'`` /
+        # ``grep '^$'`` / ``vacuum mode`` (the latter of
+        # ``--vacuum-time`` on ``journalctl``): keep only the
+        # rows whose next action is blank. The flag is a
+        # post-filter on the existing filter chain, so ``--grep``,
+        # ``--since`` and the rest all narrow the candidate set
+        # before the empty check runs, the way ``--exclude``
+        # does. ``--json`` carries the surviving empty rows;
+        # the text path prints one row index per line, the way
+        # ``git log --grep='^$'`` does.
+        hist = [row for row in hist
+                if not (row.get("next") or "").strip()]
+        if args.json:
+            print(json.dumps({
+                "history_count": len(hist),
+                "rows": hist,
+            }, ensure_ascii=False, indent=2))
+            return 0
+        if not hist:
+            print("── j-space ─ history (no empty-next rows)")
+            return 0
+        print("── j-space ─ history (%d empty-next rows)" % len(hist))
+        for index, row in enumerate(hist, 1):
+            when = (time.strftime(
+                "%Y-%m-%d %H:%M:%S",
+                time.localtime(row.get("t") or 0))
+                if row.get("t") else "(no timestamp)")
+            print("  %3d  %s" % (index, when))
+        return 0
     if args.json:
         print(json.dumps({
             "history_count": len(hist),
@@ -1874,6 +1904,9 @@ def main(argv=None):
     hist_p.add_argument(
         "--row-id", dest="row_id", default=None,
         help="return the single row at the 1-based index N (like git log --skip N -n 1 / sed -n 'Np')")
+    hist_p.add_argument(
+        "--empty", dest="empty", action="store_true",
+        help="keep only the rows whose next action is blank (like find -empty / awk '/^$/')")
     hist_p.add_argument(
         "--quiet", dest="quiet", action="store_true",
         help="print only the next action of each row, one per line (like git log --oneline)")

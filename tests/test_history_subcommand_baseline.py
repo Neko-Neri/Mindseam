@@ -929,6 +929,99 @@ class HistorySubcommandTests(unittest.TestCase):
         self.assertNotIn("TICKET-101: add cache", surviving)
         self.assertNotIn("TICKET-101: remove dead code", surviving)
 
+    def test_history_empty_keeps_only_blank_next(self):
+        # Borrowed from ``find -empty`` / ``awk '/^$/'`` /
+        # ``grep '^$'`` / ``vacuum mode`` (the latter of
+        # ``--vacuum-time`` on ``journalctl``): keep only the
+        # rows whose next action is blank. The post-filter
+        # composes with the existing chain, so ``--grep TODO
+        # --empty`` keeps only the empty-next rows that also
+        # mention TODO.
+        self._open_ledger()
+        # Hand-write the history with one empty-next and one
+        # real-next row, bypassing ``note --next ""`` which the
+        # baseline declines the way ``apt-get install `` (no
+        # value) is rejected. The two rows are written directly
+        # to ``history.json`` the way ``git fsck --no-refs``
+        # bypasses a ref check.
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        history.write_text(json.dumps([
+            {"t": 1, "next": "", "verified": 0, "open": 0},
+            {"t": 2, "next": "dom: real", "verified": 0, "open": 0},
+        ]), encoding="utf-8")
+        r = _invoke(["history", "--empty", "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 1)
+        self.assertEqual(payload["rows"][0]["next"], "")
+
+    def test_history_empty_text_renderer(self):
+        # The text path prints one row index per line, the way
+        # ``git log --grep='^$'`` does. ``awk '/^$/'`` and the
+        # text renderer both return blank lines as the result
+        # of the filter, but ``--empty`` here means ``awk``'s
+        # sense (zero-byte content), not ``grep``'s (line that
+        # does not match the pattern).
+        self._open_ledger()
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        history.write_text(json.dumps([
+            {"t": 1, "next": "", "verified": 0, "open": 0},
+        ]), encoding="utf-8")
+        r = _invoke(["history", "--empty"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("1 empty-next row", r.stdout)
+
+    def test_history_empty_composes_with_grep(self):
+        # ``--grep TODO --empty`` keeps only the rows that
+        # match ``--grep TODO`` and have an empty next. The
+        # empty-next row's ``row.get("next") or ""`` reads as
+        # the empty string and does not mention TODO, so the
+        # grep step drops it before the empty check runs.
+        # The composition therefore leaves nothing, the way
+        # the chain already says.
+        self._open_ledger()
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        history.write_text(json.dumps([
+            {"t": 1, "next": "TODO placeholder", "verified": 0, "open": 0},
+            {"t": 2, "next": "", "verified": 0, "open": 0},
+            {"t": 3, "next": "TODO empty", "verified": 0, "open": 0},
+        ]), encoding="utf-8")
+        r = _invoke(["history", "--grep", "TODO", "--empty", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        # Only ``TODO placeholder`` matches ``--grep TODO``;
+        # ``TODO empty`` is the same kind of placeholder but the
+        # surface text does not include TODO. ``--empty`` then
+        # drops the matching row because its next is not blank.
+        # The composition therefore leaves nothing.
+        self.assertEqual(payload["history_count"], 0)
+
+    def test_history_empty_keeps_empty_and_grep(self):
+        # ``--grep TODO --empty`` keeps rows whose next
+        # mentions TODO and is blank. The empty check is
+        # strict: ``"TODO".strip() = "TODO"`` is not blank, so
+        # a next whose only content is the substring the grep
+        # matched is not empty, the way ``find -empty`` looks at
+        # the byte content rather than at what ``grep`` matched.
+        self._open_ledger()
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        history.write_text(json.dumps([
+            {"t": 1, "next": "TODO placeholder", "verified": 0, "open": 0},
+            {"t": 2, "next": "TODO", "verified": 0, "open": 0},
+            {"t": 3, "next": "", "verified": 0, "open": 0},
+        ]), encoding="utf-8")
+        r = _invoke(["history", "--grep", "TODO", "--empty", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        # ``TODO placeholder`` and ``TODO`` are not empty, so
+        # ``--empty`` drops both. The ``""`` row is empty, but
+        # ``--grep TODO`` already dropped it on the first pass
+        # because the empty string does not contain the TODO
+        # substring. The composition therefore leaves nothing.
+        self.assertEqual(payload["history_count"], 0)
+
     def test_history_format_substitutes_placeholders(self):
         # Borrowed from ``git log --format='%h %s'`` /
         # ``docker ps --format '{{.Names}}'`` /

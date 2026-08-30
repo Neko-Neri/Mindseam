@@ -269,6 +269,7 @@ That keeps `.jspace/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/jspace.py history --dedup                        # collapse rows to unique next actions (like sort -u / uniq)
 <python-command> <skill-root>/scripts/jspace.py history --dedup-by-msg                # collapse rows to unique msg annotations (like sort -u -k 2)
 <python-command> <skill-root>/scripts/jspace.py history --row-id 3                     # return the single row at the 1-based index N (like git log --skip N -n 1)
+<python-command> <skill-root>/scripts/jspace.py history --empty                        # keep only the rows whose next action is blank (like find -empty / awk '/^$/')
 <python-command> <skill-root>/scripts/jspace.py history --quiet                            # one line per row, just the next action (like git log --oneline)
 <python-command> <skill-root>/scripts/jspace.py history --since 3600                    # entries from the last hour (like docker logs --since 30m)
 <python-command> <skill-root>/scripts/jspace.py history --reverse                       # newest first (like git log --reverse)
