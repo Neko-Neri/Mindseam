@@ -154,6 +154,44 @@ class InfoSubcommandTests(unittest.TestCase):
         for key in ("ledger", "history_count", "last_seam", "warnings"):
             self.assertIn(key, payload)
 
+    def test_info_version_prints_version_string(self):
+        # Borrowed from ``gh --version`` / ``kubectl version`` /
+        # ``aws --version``: print the controller's version on its
+        # own line so a host can grep, pipe, or capture it.
+        r = _invoke(["info", "--version"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        # The version starts with the program name and a space, the
+        # way ``gh 2.40.0 (2024-...`` / ``kubectl version: v1.29`` do.
+        self.assertTrue(
+            r.stdout.startswith("jspace "),
+            "expected version prefix; got: %r" % r.stdout)
+        # The rest of the line is the version string, non-empty.
+        self.assertTrue(len(r.stdout.strip()) > len("jspace "))
+
+    def test_info_version_json_round_trip(self):
+        # ``--json --version`` is the alternative face for the
+        # same field, the way the other subcommands expose it.
+        r = _invoke(["info", "--version", "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertIn("version", payload)
+        self.assertTrue(len(payload["version"]) > 0)
+        # The version in JSON must match the in-process constant.
+        sys.path.insert(0, str(
+            Path(__file__).resolve().parent.parent
+            / "j-space" / "scripts"))
+        import jspace
+        self.assertEqual(payload["version"], jspace.__version__)
+
+    def test_info_version_matches_full_output(self):
+        # When ``--version`` is not passed, the full info digest
+        # still carries a ``Version:`` line so a host that only
+        # wants text does not have to remember a second flag.
+        self._open_ledger()
+        r = _invoke(["info"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Version:", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

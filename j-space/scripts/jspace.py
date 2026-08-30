@@ -75,6 +75,14 @@ INVARIANTS = [
 SHIFTS = "Shift the abstraction, shift the strategy, or shift to empirics."
 
 
+# The controller reports its version through ``info --version``,
+# the way ``gh --version`` / ``kubectl version`` /
+# ``aws --version`` do. The string matches the README title so a
+# host that captures both can check they agree. Bump on each
+# release, the way ``git describe`` would expect.
+__version__ = "3.6.0"
+
+
 class LedgerReadError(Exception):
     """The persisted ledger cannot be read without risking state loss."""
 
@@ -734,7 +742,7 @@ def mode_history(args):
     return 0
 
 
-def mode_info(book, json_flag=False, warnings_only=False):
+def mode_info(book, json_flag=False, warnings_only=False, version_only=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -784,10 +792,24 @@ def mode_info(book, json_flag=False, warnings_only=False):
         for warning in payload["warnings"]:
             print("Warning: " + warning)
         return 0
+    if version_only:
+        # Borrowed from ``gh --version`` / ``kubectl version`` /
+        # ``aws --version`` / ``git --version``: print the
+        # controller's version on its own line so a host can grep
+        # it, pipe it into ``cut`` or capture it. ``--json`` is
+        # an alternative face for the same field, the way the
+        # other subcommands expose it.
+        if json_flag:
+            print(json.dumps({"version": __version__}, indent=2))
+            return 0
+        print("jspace " + __version__)
+        return 0
     if json_flag:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
     print("── j-space ─ info")
+    print()
+    print("Version:   " + __version__)
     print()
     print("Ledger:")
     print("  Goal:     %s" % (goal or "(not set)"))
@@ -1252,6 +1274,9 @@ def main(argv=None):
     info_p.add_argument(
         "--warnings-only", dest="warnings_only", action="store_true",
         help="print only the warning lines (like gh run list --state failed)")
+    info_p.add_argument(
+        "--version", dest="version_only", action="store_true",
+        help="print the controller version on its own (like gh --version / kubectl version)")
 
     hist_p = sub.add_parser(
         "history", help="tail the seam audit log")
@@ -1337,6 +1362,7 @@ def main(argv=None):
             book,
             json_flag=getattr(args, "json", False),
             warnings_only=getattr(args, "warnings_only", False),
+            version_only=getattr(args, "version_only", False),
         )
     if args.cmd == "history":
         return mode_history(args)

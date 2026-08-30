@@ -245,6 +245,7 @@ That keeps `.jspace/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/jspace.py info                                       # aggregate digest of the workspace state
 <python-command> <skill-root>/scripts/jspace.py info --json                                # same digest, machine-readable JSON
 <python-command> <skill-root>/scripts/jspace.py info --warnings-only                     # print only the warning lines (like gh run list --state failed)
+<python-command> <skill-root>/scripts/jspace.py info --version                          # print the controller version on its own (like gh --version / kubectl version)
 <python-command> <skill-root>/scripts/jspace.py history                                    # tail the seam audit log (like git log)
 <python-command> <skill-root>/scripts/jspace.py history --head 5                                # first 5 entries only (like head -n 5)
 <python-command> <skill-root>/scripts/jspace.py history --tail 5                                # last 5 entries only (like tail -n 5, alias of -n)
