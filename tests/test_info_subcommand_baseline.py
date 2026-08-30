@@ -247,6 +247,58 @@ class InfoSubcommandTests(unittest.TestCase):
         # ``last_seam.gap_seconds`` still carries the raw value.
         self.assertEqual(payload["last_seam"]["gap_seconds"], 3600)
 
+    def test_info_check_passes_when_ledger_is_healthy(self):
+        # Borrowed from ``git fsck`` / ``npm doctor``: a
+        # structural health report on the ledger. With a
+        # populated goal, a next action, and a fresh seam, the
+        # check returns exit 0 and the text path prints ``ok``,
+        # the way ``git fsck`` prints ``no errors``.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["info", "--check"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("ok", r.stdout)
+
+    def test_info_check_reports_missing_goal_and_next(self):
+        # With no ledger populated, ``--check`` reports the
+        # missing goal and next action, the way ``git fsck``
+        # reports dangling commits. The exit code is 2, so a
+        # CI hook that runs ``if ! jspace info --check; then
+        # exit 1; fi`` treats the missing fields as a failure.
+        r = _invoke(["info", "--check"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("no goal set", r.stdout)
+        self.assertIn("no next action set", r.stdout)
+
+    def test_info_check_reports_long_gap(self):
+        # A history with rows older than ``RESUME_GAP`` triggers
+        # the long-gap issue, the way ``git fsck --strict``
+        # treats an unreachable object as a defect.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        history = Path(self.workspace) / ".jspace" / "history.json"
+        data = json.loads(history.read_text(encoding="utf-8"))
+        data[0]["t"] = int(time.time()) - 2 * 1800  # 2 * RESUME_GAP
+        history.write_text(json.dumps(data), encoding="utf-8")
+        r = _invoke(["info", "--check"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("long gap", r.stdout)
+
+    def test_info_check_json_round_trip(self):
+        # ``--json`` exposes a structured ``issues`` array so a
+        # host can grep / filter by category, the way
+        # ``git fsck --format='%H %p %s'`` does. ``valid`` is
+        # the boolean the host's exit code mirrors.
+        r = _invoke(["info", "--check", "--json"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 2, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertFalse(payload["valid"])
+        # Each issue is a free-form string, the way ``git fsck``
+        # reports; a host filters by substring.
+        joined = " ".join(payload["issues"])
+        self.assertIn("no goal set", joined)
+        self.assertIn("no next action set", joined)
+
 
 if __name__ == "__main__":
     unittest.main()

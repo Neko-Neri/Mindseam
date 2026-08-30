@@ -513,16 +513,42 @@ def mode_resume(book):
     return 0
 
 
-def _humanize_seconds(seconds):
-    """Render a duration in the most natural unit, the way
-    ``git log --relative-date`` does.
+def _info_check_issues(book, hist, gap_seconds):
+    """Return the list of issues that ``info --check`` would surface.
 
-    Borrowed from ``humanize``-style renderers: pick the largest
-    unit that produces a value >= 1, then show the integer. The
-    text path of ``info --human`` is the only caller; ``info --json``
-    also exposes the human form under ``payload["human"]["gap_human"]``
-    for hosts that prefer a string.
+    Borrowed from ``git fsck``'s plain-text issue list: a host
+    reads the output, the issues are classifiable, and a missing
+    issue list is a healthy report. ``read_history`` already
+    auto-repairs invalid rows on read, so this function is the
+    *classifier* of the same invariants: it walks the ledger
+    after the read and reports what the auto-repair would have
+    fixed. A CI hook that wants the gate semantics runs
+    ``jspace info --check`` and treats a non-zero exit as a
+    failure, the way ``git fsck --strict`` does.
     """
+    issues = []
+    if not book.get("Goal"):
+        issues.append("ledger: no goal set")
+    if not book.get("Next"):
+        issues.append("ledger: no next action set")
+    if gap_seconds is not None and gap_seconds > RESUME_GAP:
+        issues.append("history: long gap since last seam")
+    # Re-validate the history rows themselves, the way
+    # ``read_history`` does on every read. A row that fails the
+    # shape check is a sign of disk corruption or hand-edits.
+    required = ("t", "next", "verified", "open")
+    for index, row in enumerate(hist):
+        for key in required:
+            if key not in row:
+                issues.append("history: row %d missing field %r"
+                              % (index, key))
+        if not isinstance(row.get("t"), int):
+            issues.append("history: row %d field 't' is not int"
+                          % index)
+    return issues
+
+
+def _humanize_seconds(seconds):
     if seconds is None:
         return None
     if seconds < 0:
@@ -940,7 +966,7 @@ def mode_history(args):
 
 
 def mode_info(book, json_flag=False, warnings_only=False,
-              version_only=False, human=False):
+              version_only=False, human=False, check_only=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -1013,6 +1039,34 @@ def mode_info(book, json_flag=False, warnings_only=False,
             return 0
         print("jspace " + __version__)
         return 0
+    if check_only:
+        # Borrowed from ``git fsck`` / ``npm doctor`` /
+        # ``cargo check``: a structural health report on the
+        # ledger, with the issues classified rather than
+        # silently repaired. ``read_history`` already auto-fixes
+        # invalid rows during reads; ``--check`` is the
+        # read-only counterpart that surfaces the issues
+        # without touching them, the way ``git fsck --no-reflog``
+        # / ``docker system df`` / ``aws health describe-events``
+        # surface problems a host can act on. The exit code
+        # is 0 only if the ledger passes; otherwise 2, the
+        # same code ``jspace ship --strict`` uses to turn a
+        # report into a gate.
+        issues = _info_check_issues(book, hist, gap_seconds)
+        if json_flag:
+            print(json.dumps({
+                "valid": not issues,
+                "issues": issues,
+            }, indent=2, ensure_ascii=False))
+            return 0 if not issues else 2
+        if not issues:
+            print("── j-space ─ info check")
+            print("  ledger: ok")
+            return 0
+        print("── j-space ─ info check")
+        for issue in issues:
+            print("  - " + issue)
+        return 2
     if json_flag:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -1493,6 +1547,9 @@ def main(argv=None):
     info_p.add_argument(
         "--human", dest="human", action="store_true",
         help="render time spans in human-readable units (like df -h / git log --relative-date)")
+    info_p.add_argument(
+        "--check", dest="check_only", action="store_true",
+        help="report ledger health issues without repairing (like git fsck, exit 2 on issues)")
 
     hist_p = sub.add_parser(
         "history", help="tail the seam audit log")
@@ -1601,6 +1658,7 @@ def main(argv=None):
             warnings_only=getattr(args, "warnings_only", False),
             version_only=getattr(args, "version_only", False),
             human=getattr(args, "human", False),
+            check_only=getattr(args, "check_only", False),
         )
     if args.cmd == "history":
         return mode_history(args)
