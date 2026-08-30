@@ -673,6 +673,16 @@ def mode_history(args):
     ``docker system prune --filter 'until=24h'`` /
     ``journalctl --vacuum-time=2weeks``: discard rows older than
     the last N, and persist the truncated history back to disk
+    so the next invocation sees the slimmed window.
+    ``--row-id N`` borrows ``git log --skip N -n 1`` /
+    ``jq '.['N-1']'`` / ``sed -n 'Np' file``: return the single
+    row at the 1-based index ``N``, the way ``kubectl get pod -n
+    N`` / ``hm --row N`` do. ``--json`` returns a single-row
+    payload; the text path prints the same fields the default
+    table prints, with a ``row N of M`` header. ``--row-id``
+    must run before every other render flag, including
+    ``--json``, because a host that wants just the row payload
+    does not need the table or the warning.
     so the next invocation sees the slimmed file. The render
     flag is the destructive part: ``--keep`` is a write, the
     others are reads.
@@ -763,6 +773,53 @@ def mode_history(args):
     # always reports the surviving count, ``--json`` lists the
     # surviving rows, ``--quiet`` prints only the surviving
     # next action. The flag only narrows the result set.
+    if getattr(args, "row_id", None) is not None:
+        # Borrowed from ``git log --skip N -n 1`` /
+        # ``jq '.['N-1']'`` / ``sed -n 'Np' file``: return the
+        # single row at the 1-based index ``N``, the way
+        # ``kubectl get pod -n N`` / ``hm --row N`` /
+        # ``pandas.iloc[N-1]`` do. ``--json`` returns a
+        # single-row payload; the text path prints the same
+        # fields the default table prints, with a ``row N of
+        # M`` header. ``--row-id`` must run before the early
+        # ``--json`` fall-through, so a host that asks for a
+        # single row does not also pay the cost of the full
+        # payload.
+        try:
+            n = int(args.row_id)
+        except (TypeError, ValueError):
+            print("CANNOT: --row-id expects an integer, got %r"
+                  % args.row_id, file=sys.stderr)
+            return 2
+        if not hist:
+            print("── j-space ─ history (no rows)")
+            return 0
+        if n < 1 or n > len(hist):
+            print("CANNOT: --row-id %d out of range (1..%d)"
+                  % (n, len(hist)), file=sys.stderr)
+            return 2
+        row = hist[n - 1]
+        if args.json:
+            print(json.dumps({
+                "row_id": n,
+                "row": row,
+            }, ensure_ascii=False, indent=2))
+            return 0
+        print("── j-space ─ history (row %d of %d)" % (n, len(hist)))
+        ts = row.get("t")
+        when = (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+                 if ts else "(no timestamp)")
+        nxt = row.get("next") or "(empty)"
+        verified = row.get("verified", 0)
+        opens = row.get("open", 0)
+        msg = row.get("msg") or ""
+        print("  when:     %s" % when)
+        print("  next:     %s" % nxt)
+        print("  verified: %d" % verified)
+        print("  open:     %d" % opens)
+        if msg:
+            print("  msg:      %s" % msg)
+        return 0
     if getattr(args, "first_match", False):
         hist = hist[:1]
     fields_attr = getattr(args, "fields", None)
@@ -1040,6 +1097,52 @@ def mode_history(args):
                 value = row.get(f)
                 cells.append(str(value) if value else "-")
             print("\t".join(cells))
+        return 0
+    if getattr(args, "dedup", False) or getattr(args, "dedup_by_msg", False):
+        # Borrowed from ``git log --skip N -n 1`` /
+        # ``jq '.['N-1']'`` / ``sed -n 'Np' file``: return the
+        # single row at the 1-based index ``N``, the way
+        # ``kubectl get pod -n N`` / ``hm --row N`` /
+        # ``pandas.iloc[N-1]`` do. ``--json`` returns a single-row
+        # payload; the text path prints the same fields the
+        # default table prints, with a ``Row N:`` header so a
+        # host can grep the row out of the output. The
+        # 1-based numbering matches the table index the table
+        # path already shows.
+        try:
+            n = int(args.row_id)
+        except (TypeError, ValueError):
+            print("CANNOT: --row-id expects an integer, got %r"
+                  % args.row_id, file=sys.stderr)
+            return 2
+        if not hist:
+            print("── j-space ─ history (no rows)")
+            return 0
+        if n < 1 or n > len(hist):
+            print("CANNOT: --row-id %d out of range (1..%d)"
+                  % (n, len(hist)), file=sys.stderr)
+            return 2
+        row = hist[n - 1]
+        if args.json:
+            print(json.dumps({
+                "row_id": n,
+                "row": row,
+            }, ensure_ascii=False, indent=2))
+            return 0
+        print("── j-space ─ history (row %d of %d)" % (n, len(hist)))
+        ts = row.get("t")
+        when = (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+                 if ts else "(no timestamp)")
+        nxt = row.get("next") or "(empty)"
+        verified = row.get("verified", 0)
+        opens = row.get("open", 0)
+        msg = row.get("msg") or ""
+        print("  when:     %s" % when)
+        print("  next:     %s" % nxt)
+        print("  verified: %d" % verified)
+        print("  open:     %d" % opens)
+        if msg:
+            print("  msg:      %s" % msg)
         return 0
     label = "── j-space ─ history (%d entries" % len(hist)
     if since_seconds is not None and since_seconds >= 0:
@@ -1768,6 +1871,9 @@ def main(argv=None):
     hist_p.add_argument(
         "--dedup-by-msg", dest="dedup_by_msg", action="store_true",
         help="collapse the surviving rows to unique msg annotations (like sort -u -k 2)")
+    hist_p.add_argument(
+        "--row-id", dest="row_id", default=None,
+        help="return the single row at the 1-based index N (like git log --skip N -n 1 / sed -n 'Np')")
     hist_p.add_argument(
         "--quiet", dest="quiet", action="store_true",
         help="print only the next action of each row, one per line (like git log --oneline)")

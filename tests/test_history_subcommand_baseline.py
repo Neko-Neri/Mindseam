@@ -861,6 +861,35 @@ class HistorySubcommandTests(unittest.TestCase):
         self.assertIn("TICKET-101", r.stdout)
         self.assertIn("TICKET-102", r.stdout)
 
+    def test_history_row_id_returns_a_single_row(self):
+        # Borrowed from ``git log --skip N -n 1`` /
+        # ``jq '.['N-1']'`` / ``sed -n 'Np' file``: return the
+        # single row at the 1-based index ``N``, the way
+        # ``kubectl get pod -n N`` / ``hm --row N`` do.
+        # ``--json`` returns a single-row payload; the text
+        # path prints the same fields the default table prints,
+        # with a ``row N of M`` header.
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta", "dom: gamma"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--row-id", "2", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["row_id"], 2)
+        self.assertEqual(payload["row"]["next"], "dom: beta")
+
+    def test_history_row_id_out_of_range_reports_2(self):
+        # The exit code mirrors ``git rev-list --max-count=0`` /
+        # ``kubectl get -o yaml`` when an index is past the end
+        # of the list: 2, the controller's standard error code.
+        self._open_ledger()
+        _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--row-id", "5", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 2, r.stderr)
+
     def test_history_exclude_and_grep_compose(self):
         # ``--grep`` first selects a subset, then ``--exclude``
         # further narrows it, the way the two flags compose on
