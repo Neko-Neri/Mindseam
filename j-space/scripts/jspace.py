@@ -741,6 +741,39 @@ def mode_history(args):
         print("  Last seam:  %s" % last_when)
         print("  Duration:   %d seconds across %d rows" % (duration, len(hist)))
         return 0
+    if getattr(args, "dedup", False):
+        # Borrowed from ``sort -u`` / ``uniq`` /
+        # ``awk '!seen[$0]++'``: collapse the surviving rows to
+        # the unique values of the ``next`` field, in the order
+        # the rows first appeared, the way ``sort -u`` /
+        # ``awk !seen[$0]++`` does. ``--domains`` already groups
+        # by the prefix; ``--dedup`` groups by the full next
+        # action, so a host that wants ``what distinct things
+        # did the session do`` reads it instead of guessing from
+        # the count column in ``--domains``. The path runs
+        # before the plain ``--json`` renderer so the JSON
+        # payload carries the deduped rows too.
+        seen = set()
+        deduped = []
+        for row in hist:
+            nxt = (row.get("next") or "").strip()
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            deduped.append(row)
+        if args.json:
+            print(json.dumps({
+                "history_count": len(hist),
+                "unique_count": len(deduped),
+                "rows": deduped,
+            }, ensure_ascii=False, indent=2))
+            return 0
+        print("── j-space ─ history (%d unique next actions across %d rows)"
+              % (len(deduped), len(hist)))
+        for index, row in enumerate(deduped, 1):
+            nxt = row.get("next") or "(empty)"
+            print("  %3d  %s" % (index, nxt))
+        return 0
     if args.json:
         print(json.dumps({
             "history_count": len(hist),
@@ -1444,6 +1477,9 @@ def main(argv=None):
     hist_p.add_argument(
         "--keep", dest="keep", type=int, default=None,
         help="discard rows older than the last N and persist the slimmed history (like logrotate --keep, docker system prune)")
+    hist_p.add_argument(
+        "--dedup", dest="dedup", action="store_true",
+        help="collapse the surviving rows to unique next actions (like sort -u / uniq)")
     hist_p.add_argument(
         "--quiet", dest="quiet", action="store_true",
         help="print only the next action of each row, one per line (like git log --oneline)")

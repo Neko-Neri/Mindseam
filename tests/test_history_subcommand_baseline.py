@@ -984,6 +984,48 @@ class HistorySubcommandTests(unittest.TestCase):
         nexts = [row["next"] for row in payload["rows"]]
         self.assertEqual(nexts, ["dom: alpha", "dom: beta"])
 
+    def test_history_dedup_collapses_repeated_next_actions(self):
+        # Borrowed from ``sort -u`` / ``uniq``: collapse the
+        # surviving rows to the unique values of the ``next``
+        # field, in the order the rows first appeared. ``--domains``
+        # groups by the prefix; ``--dedup`` groups by the full
+        # next action.
+        self._open_ledger()
+        for nxt in ("dom: alpha", "dom: beta", "dom: alpha",
+                    "dom: gamma", "dom: beta"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(["history", "--dedup", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 5)
+        # The rows themselves are the unique next actions, in
+        # first-seen order: alpha, beta, gamma.
+        self.assertEqual(len(payload["rows"]), 3)
+        nexts = [row["next"] for row in payload["rows"]]
+        self.assertEqual(nexts, ["dom: alpha", "dom: beta", "dom: gamma"])
+
+    def test_history_dedup_composes_with_grep(self):
+        # ``--grep`` narrows the row set first; ``--dedup`` then
+        # collapses the surviving rows. The result is the unique
+        # values among the rows that matched the grep filter.
+        self._open_ledger()
+        for nxt in ("dom: TODO alpha", "dom: beta",
+                    "dom: TODO alpha", "dom: TODO beta"):
+            _invoke(["note", "--next", nxt], cwd=self.workspace)
+            _invoke(["seam", "--json"], cwd=self.workspace)
+        r = _invoke(
+            ["history", "--grep", "TODO", "--dedup", "--json"],
+            cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 3)
+        # Two unique next actions among the TODO rows.
+        self.assertEqual(len(payload["rows"]), 2)
+        nexts = [row["next"] for row in payload["rows"]]
+        self.assertEqual(nexts, ["dom: TODO alpha", "dom: TODO beta"])
+
     def test_history_since_drops_only_ancient_rows(self):
         # A very large ``--since`` window keeps the ancient row,
         # because the cutoff (now - very_large) lands before the
