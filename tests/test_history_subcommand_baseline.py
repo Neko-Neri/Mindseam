@@ -822,6 +822,45 @@ class HistorySubcommandTests(unittest.TestCase):
         self.assertEqual(payload["history_count"], 1)
         self.assertEqual(payload["rows"][0]["next"], "dom: fix typo")
 
+    def test_history_dedup_by_msg_keeps_unique_annotations(self):
+        # Borrowed from ``sort -u -k 2``: collapse the surviving
+        # rows to unique values of the ``msg`` annotation. ``--dedup``
+        # collapses by ``next``; ``--dedup-by-msg`` collapses by
+        # ``msg``. The two flags share the dedup path, so a host
+        # can answer "what distinct annotations were attached to
+        # this session's rows" without having to know which
+        # ``next`` action they rode in on.
+        self._open_ledger()
+        messages = ("TICKET-101", "drive-by fix", "TICKET-101",
+                    "TICKET-102", "drive-by fix")
+        for msg in messages:
+            _invoke(["note", "--next", "dom: step"], cwd=self.workspace)
+            r = _invoke(["seam", "--message", msg], cwd=self.workspace)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        r = _invoke(["history", "--dedup-by-msg", "--json"],
+                    cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertEqual(payload["history_count"], 5)
+        self.assertEqual(payload["unique_count"], 3)
+        self.assertEqual(payload["by"], "msg")
+        msgs = [row["msg"] for row in payload["rows"]]
+        self.assertEqual(msgs, ["TICKET-101", "drive-by fix", "TICKET-102"])
+
+    def test_history_dedup_by_msg_text_renderer(self):
+        # The text path prints one message per surviving row,
+        # the way ``--dedup`` prints one next per row. The
+        # header line names the field the collapse keyed on.
+        self._open_ledger()
+        for msg in ("TICKET-101", "TICKET-101", "TICKET-102"):
+            _invoke(["note", "--next", "dom: step"], cwd=self.workspace)
+            _invoke(["seam", "--message", msg], cwd=self.workspace)
+        r = _invoke(["history", "--dedup-by-msg"], cwd=self.workspace)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("2 unique msg annotations", r.stdout)
+        self.assertIn("TICKET-101", r.stdout)
+        self.assertIn("TICKET-102", r.stdout)
+
     def test_history_exclude_and_grep_compose(self):
         # ``--grep`` first selects a subset, then ``--exclude``
         # further narrows it, the way the two flags compose on

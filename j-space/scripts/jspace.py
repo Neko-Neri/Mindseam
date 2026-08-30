@@ -877,38 +877,55 @@ def mode_history(args):
         print("  Last seam:  %s" % last_when)
         print("  Duration:   %d seconds across %d rows" % (duration, len(hist)))
         return 0
-    if getattr(args, "dedup", False):
+    if getattr(args, "dedup", False) or getattr(args, "dedup_by_msg", False):
         # Borrowed from ``sort -u`` / ``uniq`` /
         # ``awk '!seen[$0]++'``: collapse the surviving rows to
-        # the unique values of the ``next`` field, in the order
+        # the unique values of the chosen field, in the order
         # the rows first appeared, the way ``sort -u`` /
         # ``awk !seen[$0]++`` does. ``--domains`` already groups
-        # by the prefix; ``--dedup`` groups by the full next
-        # action, so a host that wants ``what distinct things
-        # did the session do`` reads it instead of guessing from
-        # the count column in ``--domains``. The path runs
-        # before the plain ``--json`` renderer so the JSON
-        # payload carries the deduped rows too.
+        # by the next-action prefix; ``--dedup`` groups by the
+        # full next action (so a host that wants ``what distinct
+        # things did the session do`` reads it instead of
+        # guessing from the count column in ``--domains``);
+        # ``--dedup-by-msg`` is the same collapse applied to the
+        # ``msg`` annotation, the way ``sort -u -k 2`` collapses
+        # by the second field. The two flags share the dedup
+        # path: ``--dedup`` keys on ``next``; ``--dedup-by-msg``
+        # keys on ``msg``; both are honoured if both are passed.
+        # The path runs before the plain ``--json`` renderer so
+        # the JSON payload carries the deduped rows too.
+        use_msg = getattr(args, "dedup_by_msg", False)
         seen = set()
         deduped = []
         for row in hist:
-            nxt = (row.get("next") or "").strip()
-            if nxt in seen:
+            if use_msg:
+                key = (row.get("msg") or "").strip()
+            else:
+                key = (row.get("next") or "").strip()
+            if key in seen:
                 continue
-            seen.add(nxt)
+            seen.add(key)
             deduped.append(row)
         if args.json:
             print(json.dumps({
                 "history_count": len(hist),
                 "unique_count": len(deduped),
+                "by": "msg" if use_msg else "next",
                 "rows": deduped,
             }, ensure_ascii=False, indent=2))
             return 0
-        print("── j-space ─ history (%d unique next actions across %d rows)"
-              % (len(deduped), len(hist)))
-        for index, row in enumerate(deduped, 1):
-            nxt = row.get("next") or "(empty)"
-            print("  %3d  %s" % (index, nxt))
+        if use_msg:
+            print("── j-space ─ history (%d unique msg annotations across %d rows)"
+                  % (len(deduped), len(hist)))
+            for index, row in enumerate(deduped, 1):
+                msg = row.get("msg") or "(empty)"
+                print("  %3d  %s" % (index, msg))
+        else:
+            print("── j-space ─ history (%d unique next actions across %d rows)"
+                  % (len(deduped), len(hist)))
+            for index, row in enumerate(deduped, 1):
+                nxt = row.get("next") or "(empty)"
+                print("  %3d  %s" % (index, nxt))
         return 0
     if args.json:
         print(json.dumps({
@@ -1748,6 +1765,9 @@ def main(argv=None):
     hist_p.add_argument(
         "--dedup", dest="dedup", action="store_true",
         help="collapse the surviving rows to unique next actions (like sort -u / uniq)")
+    hist_p.add_argument(
+        "--dedup-by-msg", dest="dedup_by_msg", action="store_true",
+        help="collapse the surviving rows to unique msg annotations (like sort -u -k 2)")
     hist_p.add_argument(
         "--quiet", dest="quiet", action="store_true",
         help="print only the next action of each row, one per line (like git log --oneline)")

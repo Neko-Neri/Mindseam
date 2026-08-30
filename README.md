@@ -167,6 +167,7 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/jspace.py history --until 3600
 <python-command> <skill-root>/scripts/jspace.py history --keep 500
 <python-command> <skill-root>/scripts/jspace.py history --dedup
+<python-command> <skill-root>/scripts/jspace.py history --dedup-by-msg
 <python-command> <skill-root>/scripts/jspace.py history --quiet
 <python-command> <skill-root>/scripts/jspace.py history --since 3600
 <python-command> <skill-root>/scripts/jspace.py history --reverse
