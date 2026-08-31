@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions should preserve J-Space's selective, lightweight operating design and keep the
+Contributions should preserve Mindseam's selective, lightweight operating design and keep the
 English and Chinese README files aligned when shared behavior or public claims change.
 
 Before submitting a change:

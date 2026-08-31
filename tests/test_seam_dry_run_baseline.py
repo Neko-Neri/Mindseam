@@ -3,7 +3,7 @@
 flags.
 
 The dry-run variant runs the seam's analysis but skips the
-``append_history`` call, so ``.jspace/history.json`` does not gain a
+``append_history`` call, so ``.mindseam/history.json`` does not gain a
 row. This lets a CI hook or pre-commit pipeline preview what a seam
 would record without committing the row, which is the canonical
 use of the dry-run pattern across infra tools.
@@ -18,12 +18,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _invoke(args, cwd):
     return subprocess.run(
-        [sys.executable, str(JSPACE), *args],
+        [sys.executable, str(MINDSEAM), *args],
         cwd=cwd, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -44,21 +44,21 @@ class SeamDryRunFlagTests(unittest.TestCase):
 
     def test_dry_run_does_not_create_history_json(self):
         self._open_ledger()
-        # No prior seam has been recorded, so .jspace/history.json
+        # No prior seam has been recorded, so .mindseam/history.json
         # does not exist yet. A regular seam would create it; the
         # dry-run must not.
         r = _invoke(["seam", "--dry-run"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("dry-run: history.json was not updated", r.stdout)
         self.assertFalse(
-            (Path(self.workspace) / ".jspace" / "history.json").exists())
+            (Path(self.workspace) / ".mindseam" / "history.json").exists())
 
     def test_dry_run_does_not_grow_existing_history(self):
         self._open_ledger()
         # Materialise a single history row.
         r = _invoke(["seam", "--json"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         before = json.loads(history.read_text(encoding="utf-8"))
         self.assertEqual(len(before), 1)
 
@@ -74,7 +74,7 @@ class SeamDryRunFlagTests(unittest.TestCase):
             r = _invoke(["seam", "--dry-run"], cwd=self.workspace)
             self.assertEqual(r.returncode, 0, r.stderr)
         self.assertFalse(
-            (Path(self.workspace) / ".jspace" / "history.json").exists())
+            (Path(self.workspace) / ".mindseam" / "history.json").exists())
 
     def test_dry_run_combined_with_json_still_emits_payload(self):
         self._open_ledger()

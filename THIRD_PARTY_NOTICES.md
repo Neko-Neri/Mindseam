@@ -1,6 +1,6 @@
 # Third-Party Materials
 
-J-Space Cognition Suite source code and suite-authored text are provided under the Apache
+Mindseam Cognition Suite source code and suite-authored text are provided under the Apache
 License 2.0. Short quotations, trace fragments, research findings, names, and linked materials
 from third parties remain subject to the rights and terms of their respective sources; they are
 not relicensed under Apache-2.0 merely by appearing in this repository.
@@ -19,10 +19,10 @@ materials include:
 - METR, [*Details about METR's evaluation of OpenAI
   GPT-5*](https://metr.org/evaluations/gpt-5-report/).
 - The papers and technical reports listed in
-  [`j-space/references/j-space-science.md`](j-space/references/j-space-science.md), including
+  [`mindseam/references/mindseam-science.md`](mindseam/references/mindseam-science.md), including
   arXiv:2510.27338, arXiv:2509.15541, arXiv:2501.12948, and arXiv:1704.06960.
 
-The normalized capacity and marker examples in `j-space/references/exemplars.md` and the routed
+The normalized capacity and marker examples in `mindseam/references/exemplars.md` and the routed
 modules are suite-authored teaching material. Their compact lines and marker–move pairs are not
 presented as verbatim model transcripts. No unauthenticated or undisclosed leaked transcript is
 distributed as primary evidence by this repository.

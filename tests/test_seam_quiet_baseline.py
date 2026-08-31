@@ -18,12 +18,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _invoke(args, cwd):
     return subprocess.run(
-        [sys.executable, str(JSPACE), *args],
+        [sys.executable, str(MINDSEAM), *args],
         cwd=cwd, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -70,7 +70,7 @@ class SeamQuietFlagTests(unittest.TestCase):
         # remediation, no next-empty reminder. And no dry-run
         # marker, because that marker is part of the verbose
         # path that --quiet suppresses.
-        self.assertNotIn("── j-space ─ seam", r.stdout)
+        self.assertNotIn("── mindseam ─ seam", r.stdout)
         self.assertNotIn("Goal:", r.stdout)
         self.assertNotIn("Telemetry:", r.stdout)
         self.assertNotIn("Trend:", r.stdout)
@@ -92,7 +92,7 @@ class SeamQuietFlagTests(unittest.TestCase):
         self.assertIn("Your next action has been the same", r.stdout)
         self.assertIn("Nothing new has been verified", r.stdout)
         # No banner, no per-fact bullet, no follow-up prose.
-        self.assertNotIn("── j-space ─ seam", r.stdout)
+        self.assertNotIn("── mindseam ─ seam", r.stdout)
         self.assertNotIn("· ", r.stdout)
         self.assertNotIn("You would not have noticed that", r.stdout)
         # Every line is a fact line; nothing else slipped in.
@@ -109,7 +109,7 @@ class SeamQuietFlagTests(unittest.TestCase):
         self._open_ledger()
         r = _invoke(["seam", "--quiet"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         self.assertTrue(history.exists())
         import json
         self.assertEqual(len(json.loads(history.read_text(

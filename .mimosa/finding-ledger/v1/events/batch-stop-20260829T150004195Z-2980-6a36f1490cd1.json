@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20260829T150004195Z-2980-6a36f1490cd1",
+  "runId": "20260829T150004195Z-2980-6a36f1490cd1",
+  "runStatus": "inconclusive",
+  "coverage": {
+    "status": "partial",
+    "reasons": [
+      {
+        "code": "changed_file_unreadable",
+        "stage": "candidate-select",
+        "target": "jspace_probe.py",
+        "detail": "observed changed file no longer exists or cannot be read",
+        "affectsCompletion": true
+      },
+      {
+        "code": "changed_file_unreadable",
+        "stage": "candidate-select",
+        "target": "jspace_strip_run.py",
+        "detail": "observed changed file no longer exists or cannot be read",
+        "affectsCompletion": true
+      },
+      {
+        "code": "baseline_partial",
+        "stage": "baseline",
+        "target": ".",
+        "detail": "baseline capture had enumeration or snapshot errors",
+        "affectsCompletion": false
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "jspace_probe.py",
+        "detail": "changed_file_unreadable: observed changed file no longer exists or cannot be read",
+        "affectsCompletion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "jspace_strip_run.py",
+        "detail": "changed_file_unreadable: observed changed file no longer exists or cannot be read",
+        "affectsCompletion": true
+      }
+    ]
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "bd319d8a86d176ee12adb7bba5c3dae716a768a0",
+  "diffHash": "845962722aea0d8c7fde7a801d5143ebf436646f0ffe9c53c709fb898ea78c28",
+  "rulesVersion": "unavailable",
+  "sessionHash": "5baef3bf4e15975f080d4fe2ae392233eaa67d2a78152a4cafa1c67e85967c12",
+  "reportRef": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff-20260829T150004195Z-2980-6a36f1490cd1.json",
+  "events": [],
+  "observedFindingIds": [],
+  "verifiedFiles": [
+    {
+      "file": "j-space/scripts/jspace.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "tests/test_r129_remediation_and_detector_optimizations.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "tests/test_r155_remediation_priority.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    }
+  ],
+  "recordedAt": "2026-08-29T15:00:04.619Z"
+}

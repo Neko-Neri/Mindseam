@@ -1,7 +1,7 @@
 """Test the ``seam --json`` machine-readable output added on top of the
 baseline controller.
 
-The baseline J-Space controller ships with a text-only ``seam`` subcommand.
+The baseline Mindseam controller ships with a text-only ``seam`` subcommand.
 This test pins the new ``--json`` flag, which borrows the standard
 CLI pattern from ``gh --json``, ``cargo --message-format json`` and
 ``aws --output json``: text and JSON are two faces of the same data,
@@ -21,12 +21,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _invoke(args, cwd):
     return subprocess.run(
-        [sys.executable, str(JSPACE), *args],
+        [sys.executable, str(MINDSEAM), *args],
         cwd=cwd, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -74,7 +74,7 @@ class SeamJsonFlagTests(unittest.TestCase):
         self._open_ledger()
         result = _invoke(["seam"], cwd=self.workspace)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("── j-space ─ seam", result.stdout)
+        self.assertIn("── mindseam ─ seam", result.stdout)
         self.assertFalse(result.stdout.lstrip().startswith("{"))
 
     def test_seam_json_history_count_grows(self):
@@ -90,7 +90,7 @@ class SeamJsonFlagTests(unittest.TestCase):
 
     def test_seam_json_emits_warning_when_next_missing(self):
         self._open_ledger()
-        ledger = Path(self.workspace) / ".jspace" / "WORKSPACE.md"
+        ledger = Path(self.workspace) / ".mindseam" / "WORKSPACE.md"
         text = ledger.read_text(encoding="utf-8")
         ledger.write_text(re.sub(r"## Next\n.+", "## Next\n", text),
                           encoding="utf-8")
@@ -103,7 +103,7 @@ class SeamJsonFlagTests(unittest.TestCase):
 
     def test_seam_json_still_records_state(self):
         self._open_ledger()
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         before = (len(json.loads(history.read_text(encoding="utf-8")))
                   if history.exists() else 0)
         r = _invoke(["seam", "--json"], cwd=self.workspace)
@@ -117,7 +117,7 @@ class SeamJsonFlagTests(unittest.TestCase):
         # what appends the first row. Run a JSON seam once to materialise
         # the file, then rewind the timestamps to a pre-gap era.
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         for row in data:
             row["t"] = 0  # ancient, far past RESUME_GAP

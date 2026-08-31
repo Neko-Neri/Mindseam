@@ -1,0 +1,560 @@
+{
+  "schema_version": "mimosa-task-review/v2",
+  "run_id": "20260829T114025268Z-26488-9fb2fc3d33d5",
+  "run_status": "inconclusive",
+  "errors": [
+    {
+      "stage": "candidate-select",
+      "target": "jspace_profile.py",
+      "reason": "changed_file_unreadable: observed changed file no longer exists or cannot be read"
+    }
+  ],
+  "coverage": {
+    "schema_version": "mimosa-hook-coverage/v1",
+    "status": "partial",
+    "scope": "hook_observed_diff",
+    "baseline": {
+      "complete": false,
+      "captured_files": 3,
+      "candidate_limit": 5000,
+      "truncated": false,
+      "enumeration_error_count": 0,
+      "snapshot_error_count": 0,
+      "compensated_target_count": 2
+    },
+    "change_tracking": {
+      "touched_observed": 3,
+      "touched_retained": 3,
+      "truncated": false,
+      "bash_mutation": false,
+      "bash_discovered": 0,
+      "bash_discovery_limit": 80,
+      "bash_discovery_truncated": false
+    },
+    "candidates": {
+      "eligible_files": 2,
+      "selected_files": 2,
+      "limit": 20,
+      "truncated": false
+    },
+    "scanning": {
+      "required_files": 2,
+      "scanned_files": 2,
+      "skipped_files": 0,
+      "failed_files": 0,
+      "project_checks_required": 0,
+      "project_checks_completed": 0
+    },
+    "notification": {
+      "eligible_findings": 6,
+      "detailed_findings": 0,
+      "detail_limit": 3,
+      "truncated": true
+    },
+    "reason_counts": {
+      "changed_file_unreadable": 1,
+      "baseline_partial": 1,
+      "project_check_failed": 1
+    },
+    "reasons": [
+      {
+        "code": "changed_file_unreadable",
+        "stage": "candidate-select",
+        "target": "jspace_profile.py",
+        "detail": "observed changed file no longer exists or cannot be read",
+        "affects_completion": true
+      },
+      {
+        "code": "baseline_partial",
+        "stage": "baseline",
+        "target": ".",
+        "detail": "baseline capture had enumeration or snapshot errors",
+        "affects_completion": false
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "jspace_profile.py",
+        "detail": "changed_file_unreadable: observed changed file no longer exists or cannot be read",
+        "affects_completion": true
+      }
+    ],
+    "reasons_truncated": false
+  },
+  "generated_at": "2026-08-29T11:40:25.268Z",
+  "session_id": "sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff",
+  "target": ".",
+  "revision": "bd319d8a86d176ee12adb7bba5c3dae716a768a0",
+  "rules_version": "unavailable",
+  "diff_hash": "397de49a41ad2e086ac026bf18b63b838c50a741101d2bf9e6b47d45a2c103d6",
+  "diff": {
+    "algorithm": "sha256",
+    "changed_file_count": 2,
+    "changed_files": [
+      {
+        "file": "j-space/scripts/jspace.py",
+        "ranges": [
+          {
+            "start": 1449,
+            "end": 1456
+          },
+          {
+            "start": 1462,
+            "end": 1487
+          },
+          {
+            "start": 1491,
+            "end": 1496
+          },
+          {
+            "start": 1498,
+            "end": 1612
+          }
+        ],
+        "before_hash": "dd3b90f4e51194952129a2668e115f66e34e8b7473f84078cdc6fe0b4c6dfa32",
+        "after_hash": "14a3f6212379652015f1845c7c2bf77dfb662758fcec73edc3e8b476b95166d6"
+      },
+      {
+        "file": "tests/test_r154_pattern_persistence_roll.py",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 120
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "fc859fb7b8c690772302e9e5143374c2f6841a55cc9931ef1a69128bb76e0ecf"
+      }
+    ]
+  },
+  "timing": {
+    "started_at": "2026-08-29T11:40:22.449Z",
+    "completed_at": "2026-08-29T11:40:25.268Z",
+    "duration_ms": 2819,
+    "measurement": "hook_wall_clock"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "model_calls": 0,
+    "measurement": "known-zero"
+  },
+  "telemetry": {
+    "schemaVersion": "mimosa-gate-telemetry/v1",
+    "profile": "gate",
+    "operation": "Stop",
+    "outcome": "partial/INCONCLUSIVE",
+    "latencyMs": 2819,
+    "peakMemoryBytes": 146567168,
+    "memoryMeasurement": "max-observed-process-rss",
+    "scannedFiles": 2,
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "measurement": "not-applicable"
+    },
+    "denyCount": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "modelCalls": 0,
+      "measurement": "known-zero"
+    }
+  },
+  "finding_count": 6,
+  "rewake_finding_count": 0,
+  "evidence_boundary": {
+    "scan": "candidate",
+    "static_fix_verification": "observed_static_only",
+    "runtime_verification": "not_performed"
+  },
+  "finding_events": [
+    {
+      "finding_id": "mimosa-01a120e15456f6a5de154add",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 78,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "弱随机数",
+      "status": "candidate",
+      "decision": "advisory",
+      "at": "2026-08-29T11:39:39.846Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "fa6da8c94c4c4b6d178dc893971c37760e4d277780a651fc4543d102b699a5eb",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-01a120e15456f6a5de154add",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 78,
+      "rule_id": "security",
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "advisory",
+      "at": "2026-08-29T11:39:39.847Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "fa6da8c94c4c4b6d178dc893971c37760e4d277780a651fc4543d102b699a5eb",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-dc98cfe95a771b7aa863722d",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 87,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "弱随机数",
+      "status": "candidate",
+      "decision": "advisory",
+      "at": "2026-08-29T11:39:39.847Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2007d0877a102a230521c195b064011401586f2b0abf394e4236434e8789ab89",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-dc98cfe95a771b7aa863722d",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 87,
+      "rule_id": "security",
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "advisory",
+      "at": "2026-08-29T11:39:39.847Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2007d0877a102a230521c195b064011401586f2b0abf394e4236434e8789ab89",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-e1c4ffc48b8d62f112e35ca8",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 113,
+      "rule_id": "security",
+      "severity": "high",
+      "category": "弱随机数",
+      "status": "candidate",
+      "decision": "advisory",
+      "at": "2026-08-29T11:39:39.847Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "cfc5aeabbfc105947ae883206be0fdc7eff9b07ffdfe8649475d6b0df39112bc",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-e1c4ffc48b8d62f112e35ca8",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 113,
+      "rule_id": "security",
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "advisory",
+      "at": "2026-08-29T11:39:39.847Z",
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "cfc5aeabbfc105947ae883206be0fdc7eff9b07ffdfe8649475d6b0df39112bc",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-01a120e15456f6a5de154add",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 78,
+      "severity": "high",
+      "category": "弱随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T11:40:25.268Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "fa6da8c94c4c4b6d178dc893971c37760e4d277780a651fc4543d102b699a5eb",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-01a120e15456f6a5de154add",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 78,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T11:40:25.268Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "fa6da8c94c4c4b6d178dc893971c37760e4d277780a651fc4543d102b699a5eb",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-dc98cfe95a771b7aa863722d",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 87,
+      "severity": "high",
+      "category": "弱随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T11:40:25.268Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2007d0877a102a230521c195b064011401586f2b0abf394e4236434e8789ab89",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-dc98cfe95a771b7aa863722d",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 87,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T11:40:25.268Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "2007d0877a102a230521c195b064011401586f2b0abf394e4236434e8789ab89",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-e1c4ffc48b8d62f112e35ca8",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 113,
+      "severity": "high",
+      "category": "弱随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T11:40:25.268Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "cfc5aeabbfc105947ae883206be0fdc7eff9b07ffdfe8649475d6b0df39112bc",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-e1c4ffc48b8d62f112e35ca8",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 113,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T11:40:25.268Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "cfc5aeabbfc105947ae883206be0fdc7eff9b07ffdfe8649475d6b0df39112bc",
+        "runtime_oracle": false
+      }
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "mimosa-01a120e15456f6a5de154add",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 78,
+      "end_line": 78,
+      "severity": "high",
+      "category": "弱随机数",
+      "kind": "semgrep",
+      "advisory": true,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "tests/test_r154_pattern_persistence_roll.py",
+          "line": 78,
+          "evidence_hash": "fa6da8c94c4c4b6d178dc893971c37760e4d277780a651fc4543d102b699a5eb",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-01a120e15456f6a5de154add",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 78,
+      "end_line": 78,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "tests/test_r154_pattern_persistence_roll.py",
+          "line": 78,
+          "evidence_hash": "fa6da8c94c4c4b6d178dc893971c37760e4d277780a651fc4543d102b699a5eb",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-dc98cfe95a771b7aa863722d",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 87,
+      "end_line": 87,
+      "severity": "high",
+      "category": "弱随机数",
+      "kind": "semgrep",
+      "advisory": true,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "tests/test_r154_pattern_persistence_roll.py",
+          "line": 87,
+          "evidence_hash": "2007d0877a102a230521c195b064011401586f2b0abf394e4236434e8789ab89",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-dc98cfe95a771b7aa863722d",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 87,
+      "end_line": 87,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "tests/test_r154_pattern_persistence_roll.py",
+          "line": 87,
+          "evidence_hash": "2007d0877a102a230521c195b064011401586f2b0abf394e4236434e8789ab89",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-e1c4ffc48b8d62f112e35ca8",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 113,
+      "end_line": 113,
+      "severity": "high",
+      "category": "弱随机数",
+      "kind": "semgrep",
+      "advisory": true,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "tests/test_r154_pattern_persistence_roll.py",
+          "line": 113,
+          "evidence_hash": "cfc5aeabbfc105947ae883206be0fdc7eff9b07ffdfe8649475d6b0df39112bc",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-e1c4ffc48b8d62f112e35ca8",
+      "file": "tests/test_r154_pattern_persistence_roll.py",
+      "line": 113,
+      "end_line": 113,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "tests/test_r154_pattern_persistence_roll.py",
+          "line": 113,
+          "evidence_hash": "cfc5aeabbfc105947ae883206be0fdc7eff9b07ffdfe8649475d6b0df39112bc",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    }
+  ],
+  "artifacts": {
+    "immutable_report": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff-20260829T114025268Z-26488-9fb2fc3d33d5.json",
+    "latest_report": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff.json",
+    "history_summary": ".mimosa/history/run-20260829T114025268Z-26488-9fb2fc3d33d5.json"
+  }
+}

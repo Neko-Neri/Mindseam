@@ -18,12 +18,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _ship(args, text):
     return subprocess.run(
-        [sys.executable, str(JSPACE), "ship", *args, "-"],
+        [sys.executable, str(MINDSEAM), "ship", *args, "-"],
         input=text, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -41,13 +41,13 @@ class ShipStrictFlagTests(unittest.TestCase):
         text = "Note ⇒ the inner register leaked here.\n"
         r = _ship([], text)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("── j-space ─ ship", r.stdout)
+        self.assertIn("── mindseam ─ ship", r.stdout)
 
     def test_strict_fails_build_on_inner_register_leak(self):
         text = "Note ⇒ the inner register leaked here.\n"
         r = _ship(["--strict"], text)
         self.assertEqual(r.returncode, 2, r.stderr)
-        self.assertIn("── j-space ─ ship", r.stdout)
+        self.assertIn("── mindseam ─ ship", r.stdout)
 
     def test_strict_fails_build_on_state_marker(self):
         text = "Calling PHEW to settle this thread.\n"

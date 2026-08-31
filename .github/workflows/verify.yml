@@ -19,6 +19,6 @@ jobs:
         with:
           python-version: "3.x"
       - name: Suite integrity check
-        run: python j-space/scripts/verify_suite.py
+        run: python mindseam/scripts/verify_suite.py
       - name: Controller regression tests
         run: python -m unittest discover -s tests -v

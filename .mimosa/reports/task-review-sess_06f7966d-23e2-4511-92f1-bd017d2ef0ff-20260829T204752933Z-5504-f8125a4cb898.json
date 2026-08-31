@@ -1,0 +1,195 @@
+{
+  "schema_version": "mimosa-task-review/v2",
+  "run_id": "20260829T204752933Z-5504-f8125a4cb898",
+  "run_status": "inconclusive",
+  "errors": [
+    {
+      "stage": "candidate-select",
+      "target": "jspace_dbg.py",
+      "reason": "changed_file_unreadable: observed changed file no longer exists or cannot be read"
+    },
+    {
+      "stage": "candidate-select",
+      "target": "jspace_dbg2.py",
+      "reason": "changed_file_unreadable: observed changed file no longer exists or cannot be read"
+    }
+  ],
+  "coverage": {
+    "schema_version": "mimosa-hook-coverage/v1",
+    "status": "partial",
+    "scope": "hook_observed_diff",
+    "baseline": {
+      "complete": true,
+      "captured_files": 140,
+      "candidate_limit": 5000,
+      "truncated": false,
+      "enumeration_error_count": 0,
+      "snapshot_error_count": 0,
+      "compensated_target_count": 2
+    },
+    "change_tracking": {
+      "touched_observed": 4,
+      "touched_retained": 4,
+      "truncated": false,
+      "bash_mutation": false,
+      "bash_discovered": 0,
+      "bash_discovery_limit": 80,
+      "bash_discovery_truncated": false
+    },
+    "candidates": {
+      "eligible_files": 2,
+      "selected_files": 2,
+      "limit": 20,
+      "truncated": false
+    },
+    "scanning": {
+      "required_files": 2,
+      "scanned_files": 2,
+      "skipped_files": 0,
+      "failed_files": 0,
+      "project_checks_required": 0,
+      "project_checks_completed": 0
+    },
+    "notification": {
+      "eligible_findings": 0,
+      "detailed_findings": 0,
+      "detail_limit": 3,
+      "truncated": false
+    },
+    "reason_counts": {
+      "changed_file_unreadable": 2,
+      "project_check_failed": 2
+    },
+    "reasons": [
+      {
+        "code": "changed_file_unreadable",
+        "stage": "candidate-select",
+        "target": "jspace_dbg.py",
+        "detail": "observed changed file no longer exists or cannot be read",
+        "affects_completion": true
+      },
+      {
+        "code": "changed_file_unreadable",
+        "stage": "candidate-select",
+        "target": "jspace_dbg2.py",
+        "detail": "observed changed file no longer exists or cannot be read",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "jspace_dbg.py",
+        "detail": "changed_file_unreadable: observed changed file no longer exists or cannot be read",
+        "affects_completion": true
+      },
+      {
+        "code": "project_check_failed",
+        "stage": "candidate-select",
+        "target": "jspace_dbg2.py",
+        "detail": "changed_file_unreadable: observed changed file no longer exists or cannot be read",
+        "affects_completion": true
+      }
+    ],
+    "reasons_truncated": false
+  },
+  "generated_at": "2026-08-29T20:47:52.933Z",
+  "session_id": "sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff",
+  "target": ".",
+  "revision": "bd319d8a86d176ee12adb7bba5c3dae716a768a0",
+  "rules_version": "unavailable",
+  "diff_hash": "445eed53f67b707589c0448ce1f9a8625d6848fb39778551e3149614243ab934",
+  "diff": {
+    "algorithm": "sha256",
+    "changed_file_count": 2,
+    "changed_files": [
+      {
+        "file": "j-space/scripts/jspace.py",
+        "ranges": [
+          {
+            "start": 467,
+            "end": 470
+          },
+          {
+            "start": 475,
+            "end": 484
+          },
+          {
+            "start": 489,
+            "end": 489
+          },
+          {
+            "start": 493,
+            "end": 496
+          },
+          {
+            "start": 1012,
+            "end": 1014
+          }
+        ],
+        "before_hash": "664342c2c3879302f84595b5016072b127e61b0498b87e4dbf1778ad67f95698",
+        "after_hash": "ba648f5caeb0af7f4891fa2e64e30bddf9be03b887fd1d55e59ead45ed2dc972"
+      },
+      {
+        "file": "tests/test_history_subcommand_baseline.py",
+        "ranges": [
+          {
+            "start": 132,
+            "end": 165
+          }
+        ],
+        "before_hash": "c31e4aece40489f5775a5204ac338be0c018499c0fdd5405266d9dce50097a97",
+        "after_hash": "6da440b4ba5b8217b9bca7aef6d4cc4163cb4bbdc2f2e23f3595c9ae62ddf2f6"
+      }
+    ]
+  },
+  "timing": {
+    "started_at": "2026-08-29T20:47:51.156Z",
+    "completed_at": "2026-08-29T20:47:52.933Z",
+    "duration_ms": 1777,
+    "measurement": "hook_wall_clock"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "model_calls": 0,
+    "measurement": "known-zero"
+  },
+  "telemetry": {
+    "schemaVersion": "mimosa-gate-telemetry/v1",
+    "profile": "gate",
+    "operation": "Stop",
+    "outcome": "partial/INCONCLUSIVE",
+    "latencyMs": 1777,
+    "peakMemoryBytes": 127844352,
+    "memoryMeasurement": "max-observed-process-rss",
+    "scannedFiles": 2,
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "measurement": "not-applicable"
+    },
+    "denyCount": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "modelCalls": 0,
+      "measurement": "known-zero"
+    }
+  },
+  "finding_count": 0,
+  "rewake_finding_count": 0,
+  "evidence_boundary": {
+    "scan": "candidate",
+    "static_fix_verification": "observed_static_only",
+    "runtime_verification": "not_performed"
+  },
+  "finding_events": [],
+  "findings": [],
+  "artifacts": {
+    "immutable_report": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff-20260829T204752933Z-5504-f8125a4cb898.json",
+    "latest_report": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff.json",
+    "history_summary": ".mimosa/history/run-20260829T204752933Z-5504-f8125a4cb898.json"
+  }
+}

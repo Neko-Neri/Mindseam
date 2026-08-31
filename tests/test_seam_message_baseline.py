@@ -18,12 +18,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _invoke(args, cwd):
     return subprocess.run(
-        [sys.executable, str(JSPACE), *args],
+        [sys.executable, str(MINDSEAM), *args],
         cwd=cwd, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -54,7 +54,7 @@ class SeamMessageFlagTests(unittest.TestCase):
         # can see the annotation in the same report as the
         # observations.
         self.assertIn("Message:   rolled back the cache", r.stdout)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["msg"], "rolled back the cache")
@@ -76,7 +76,7 @@ class SeamMessageFlagTests(unittest.TestCase):
         r = _invoke(["seam", "--msg", "short form"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("Message:   short form", r.stdout)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         self.assertEqual(data[0]["msg"], "short form")
 
@@ -89,7 +89,7 @@ class SeamMessageFlagTests(unittest.TestCase):
             ["seam", "--message", "preview only", "--dry-run", "--json"],
             cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         # No row was ever written: history.json does not exist.
         self.assertFalse(history.exists())
 
@@ -126,7 +126,7 @@ class SeamMessageFlagTests(unittest.TestCase):
         self._open_ledger()
         r = _invoke(["seam"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         self.assertNotIn("msg", data[0])
         r = _invoke(["history", "--fields", "next,msg"],

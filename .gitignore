@@ -1,5 +1,5 @@
-# J-Space task-local state
-.jspace/
+# Mindseam task-local state
+.mindseam/
 
 # Python caches
 __pycache__/

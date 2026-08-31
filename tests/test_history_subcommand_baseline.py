@@ -2,12 +2,12 @@
 
 Borrowed from ``git log -n N``, ``gh run list --limit N`` and
 ``docker logs --tail N``: a tail / limit interface over an
-append-only record. The J-Space history is the controller's audit
+append-only record. The Mindseam history is the controller's audit
 log; ``history`` lets a host or human re-anchor between seams
 without re-running one. ``--reverse`` borrows ``git log --reverse``,
 ``--since`` borrows ``docker logs --since 30m`` /
 ``journalctl --since "1 hour ago"``. The implementation only reads
-``.jspace/history.json``; it does not depend on the detector layer
+``.mindseam/history.json``; it does not depend on the detector layer
 that the extended suite expects.
 """
 
@@ -21,12 +21,12 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _invoke(args, cwd):
     return subprocess.run(
-        [sys.executable, str(JSPACE), *args],
+        [sys.executable, str(MINDSEAM), *args],
         cwd=cwd, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -57,7 +57,7 @@ class HistorySubcommandTests(unittest.TestCase):
         self._open_ledger()
         r = _invoke(["history"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("── j-space ─ history (0 entries)", r.stdout)
+        self.assertIn("── mindseam ─ history (0 entries)", r.stdout)
 
     def test_history_lists_each_recorded_seam(self):
         self._open_ledger()
@@ -66,7 +66,7 @@ class HistorySubcommandTests(unittest.TestCase):
         r = _invoke(["history"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
         # 3 seams means 3 history rows.
-        self.assertIn("── j-space ─ history (3 entries)", r.stdout)
+        self.assertIn("── mindseam ─ history (3 entries)", r.stdout)
         for index in range(3):
             self.assertIn("dom: step %d" % index, r.stdout)
 
@@ -172,7 +172,7 @@ class HistorySubcommandTests(unittest.TestCase):
         for index in range(2):
             self._seam("dom: step %d" % index)
         # Rewind the first row to be ancient, keep the second fresh.
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         ancient = int(time.time()) - 7200  # two hours ago
         data[0]["t"] = ancient
@@ -196,7 +196,7 @@ class HistorySubcommandTests(unittest.TestCase):
         self._open_ledger()
         for index in range(2):
             self._seam("dom: step %d" % index)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = 0
         data[1]["t"] = int(time.time())
@@ -267,7 +267,7 @@ class HistorySubcommandTests(unittest.TestCase):
                     "dom: other fresh"):
             _invoke(["note", "--next", nxt], cwd=self.workspace)
             _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         # All three rows: rewind the first to be ancient; mark the
         # other two as now. Among the two fresh rows only one
@@ -300,7 +300,7 @@ class HistorySubcommandTests(unittest.TestCase):
         lines = [l for l in r.stdout.splitlines() if l]
         self.assertEqual(lines, ["dom: alpha", "dom: beta", "dom: gamma"])
         # No header, no row number, no "v=0" suffix.
-        self.assertNotIn("── j-space", r.stdout)
+        self.assertNotIn("── mindseam", r.stdout)
         self.assertNotIn("entries", r.stdout)
         self.assertNotIn("v=", r.stdout)
         self.assertNotIn("o=", r.stdout)
@@ -342,7 +342,7 @@ class HistorySubcommandTests(unittest.TestCase):
         lines = [l for l in r.stdout.splitlines() if l]
         self.assertEqual(lines, ["dom: alpha", "dom: beta", "dom: gamma"])
         # No header, no row number, no other field.
-        self.assertNotIn("── j-space", r.stdout)
+        self.assertNotIn("── mindseam", r.stdout)
         self.assertNotIn("entries", r.stdout)
         self.assertNotIn("v=", r.stdout)
         self.assertNotIn("o=", r.stdout)
@@ -412,7 +412,7 @@ class HistorySubcommandTests(unittest.TestCase):
     def test_history_count_prints_integer(self):
         # Borrowed from ``wc -l`` / ``git rev-list --count``:
         # print only the row count. A host can capture it with
-        # ``count=$(jspace history --count)`` and use it in
+        # ``count=$(mindseam history --count)`` and use it in
         # CI scripts.
         self._open_ledger()
         for _ in range(3):
@@ -426,7 +426,7 @@ class HistorySubcommandTests(unittest.TestCase):
 
     def test_history_count_respects_since_filter(self):
         # ``--count`` composes with the other filters so a host
-        # can do ``count=$(jspace history --since 3600 --grep TODO
+        # can do ``count=$(mindseam history --since 3600 --grep TODO
         # --count)`` without parsing tables.
         self._open_ledger()
         for nxt in ("dom: TODO add cache", "dom: fix typo",
@@ -467,7 +467,7 @@ class HistorySubcommandTests(unittest.TestCase):
     def test_history_first_match_combines_with_grep(self):
         # ``--grep`` already narrows the result set; ``--first-match``
         # then takes the first surviving row. So a host can do
-        # ``jspace history --grep TODO --first-match`` to find the
+        # ``mindseam history --grep TODO --first-match`` to find the
         # first TODO row.
         self._open_ledger()
         for nxt in ("dom: setup", "dom: TODO cache",
@@ -540,7 +540,7 @@ class HistorySubcommandTests(unittest.TestCase):
         # as ``-`` along with all other falsy fields.
         self._open_ledger()
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         # Replace the recorded next with the empty string. The
         # ``--fields`` renderer treats any falsy value (None,
@@ -644,7 +644,7 @@ class HistorySubcommandTests(unittest.TestCase):
         self._open_ledger()
         # Run the seam so it materialises a history row.
         _invoke(["seam"], cwd=self.workspace)
-        history_path = Path(self.workspace) / ".jspace" / "history.json"
+        history_path = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history_path.read_text(encoding="utf-8"))
         for row in data:
             row["next"] = ""
@@ -665,7 +665,7 @@ class HistorySubcommandTests(unittest.TestCase):
             _invoke(["seam", "--json"], cwd=self.workspace)
         r = _invoke(["history", "--span"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("── j-space ─ history span", r.stdout)
+        self.assertIn("── mindseam ─ history span", r.stdout)
         self.assertIn("First seam:", r.stdout)
         self.assertIn("Last seam:", r.stdout)
         self.assertIn("Duration:", r.stdout)
@@ -678,7 +678,7 @@ class HistorySubcommandTests(unittest.TestCase):
         for _ in range(2):
             _invoke(["note", "--next", "dom: step"], cwd=self.workspace)
             _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         # Make the duration deterministic: two rows exactly
         # 100 seconds apart.
@@ -714,7 +714,7 @@ class HistorySubcommandTests(unittest.TestCase):
                     "dom: TODO dead code"):
             _invoke(["note", "--next", nxt], cwd=self.workspace)
             _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = 2000000000
         data[1]["t"] = 2000000050
@@ -747,7 +747,7 @@ class HistorySubcommandTests(unittest.TestCase):
             {"t": now - 1000, "next": "dom: old", "verified": 0, "open": 0},
             {"t": now - 10000, "next": "dom: ancient", "verified": 0, "open": 0},
         ]
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         history.parent.mkdir(parents=True, exist_ok=True)
         history.write_text(json.dumps(data), encoding="utf-8")
         r = _invoke(["history", "--until", "500", "--json"],
@@ -772,10 +772,10 @@ class HistorySubcommandTests(unittest.TestCase):
         # the ``--since`` / ``--until`` arguments from the same
         # reference so the math is exact.
         self._open_ledger()
-        # Materialise one row first so ``.jspace/history.json`` is
+        # Materialise one row first so ``.mindseam/history.json`` is
         # well-formed, then hand-write the full four-row ledger.
         _invoke(["seam"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         ref = int(time.time()) - 1
         data = [
             {"t": ref + 1, "next": "dom: fresh", "verified": 0, "open": 0},
@@ -944,7 +944,7 @@ class HistorySubcommandTests(unittest.TestCase):
         # value) is rejected. The two rows are written directly
         # to ``history.json`` the way ``git fsck --no-refs``
         # bypasses a ref check.
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         history.write_text(json.dumps([
             {"t": 1, "next": "", "verified": 0, "open": 0},
             {"t": 2, "next": "dom: real", "verified": 0, "open": 0},
@@ -963,7 +963,7 @@ class HistorySubcommandTests(unittest.TestCase):
         # sense (zero-byte content), not ``grep``'s (line that
         # does not match the pattern).
         self._open_ledger()
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         history.write_text(json.dumps([
             {"t": 1, "next": "", "verified": 0, "open": 0},
         ]), encoding="utf-8")
@@ -980,7 +980,7 @@ class HistorySubcommandTests(unittest.TestCase):
         # The composition therefore leaves nothing, the way
         # the chain already says.
         self._open_ledger()
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         history.write_text(json.dumps([
             {"t": 1, "next": "TODO placeholder", "verified": 0, "open": 0},
             {"t": 2, "next": "", "verified": 0, "open": 0},
@@ -1005,7 +1005,7 @@ class HistorySubcommandTests(unittest.TestCase):
         # matched is not empty, the way ``find -empty`` looks at
         # the byte content rather than at what ``grep`` matched.
         self._open_ledger()
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         history.write_text(json.dumps([
             {"t": 1, "next": "TODO placeholder", "verified": 0, "open": 0},
             {"t": 2, "next": "TODO", "verified": 0, "open": 0},
@@ -1124,7 +1124,7 @@ class HistorySubcommandTests(unittest.TestCase):
         payload = json.loads(r.stdout)
         self.assertEqual(payload["history_count"], 0)
         # The on-disk file is also empty.
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         self.assertEqual(json.loads(history.read_text(encoding="utf-8")),
                          [])
 
@@ -1193,7 +1193,7 @@ class HistorySubcommandTests(unittest.TestCase):
         # row's timestamp.
         self._open_ledger()
         self._seam("dom: ancient")
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = 0  # epoch
         history.write_text(json.dumps(data), encoding="utf-8")

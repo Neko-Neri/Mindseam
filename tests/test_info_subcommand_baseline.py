@@ -19,12 +19,12 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE = ROOT / "j-space" / "scripts" / "jspace.py"
+MINDSEAM = ROOT / "mindseam" / "scripts" / "mindseam.py"
 
 
 def _invoke(args, cwd):
     return subprocess.run(
-        [sys.executable, str(JSPACE), *args],
+        [sys.executable, str(MINDSEAM), *args],
         cwd=cwd, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -92,7 +92,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # history, so the rewound state stays put across subsequent
         # invocations.
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         for row in data:
             row["t"] = 0
@@ -117,7 +117,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # No ledger, no history, no long-gap lines — just warnings.
         self.assertNotIn("Ledger:", r.stdout)
         self.assertNotIn("History:", r.stdout)
-        self.assertNotIn("── j-space ─ info", r.stdout)
+        self.assertNotIn("── mindseam ─ info", r.stdout)
         # But every warning the full path would have shown is
         # still here.
         for warning in ("no goal set", "next action is not set",
@@ -164,10 +164,10 @@ class InfoSubcommandTests(unittest.TestCase):
         # The version starts with the program name and a space, the
         # way ``gh 2.40.0 (2024-...`` / ``kubectl version: v1.29`` do.
         self.assertTrue(
-            r.stdout.startswith("jspace "),
+            r.stdout.startswith("mindseam "),
             "expected version prefix; got: %r" % r.stdout)
         # The rest of the line is the version string, non-empty.
-        self.assertTrue(len(r.stdout.strip()) > len("jspace "))
+        self.assertTrue(len(r.stdout.strip()) > len("mindseam "))
 
     def test_info_version_json_round_trip(self):
         # ``--json --version`` is the alternative face for the
@@ -180,9 +180,9 @@ class InfoSubcommandTests(unittest.TestCase):
         # The version in JSON must match the in-process constant.
         sys.path.insert(0, str(
             Path(__file__).resolve().parent.parent
-            / "j-space" / "scripts"))
-        import jspace
-        self.assertEqual(payload["version"], jspace.__version__)
+            / "mindseam" / "scripts"))
+        import mindseam
+        self.assertEqual(payload["version"], mindseam.__version__)
 
     def test_info_version_matches_full_output(self):
         # When ``--version`` is not passed, the full info digest
@@ -202,7 +202,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # Materialise one history row and rewind its timestamp so
         # the gap is exactly 120 seconds.
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = int(time.time()) - 120
         history.write_text(json.dumps(data), encoding="utf-8")
@@ -219,7 +219,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # stays in bytes when the value is below 1K.
         self._open_ledger()
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = int(time.time()) - 30
         history.write_text(json.dumps(data), encoding="utf-8")
@@ -235,7 +235,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # can compose it as it sees fit.
         self._open_ledger()
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = int(time.time()) - 3600
         history.write_text(json.dumps(data), encoding="utf-8")
@@ -263,7 +263,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # With no ledger populated, ``--check`` reports the
         # missing goal and next action, the way ``git fsck``
         # reports dangling commits. The exit code is 2, so a
-        # CI hook that runs ``if ! jspace info --check; then
+        # CI hook that runs ``if ! mindseam info --check; then
         # exit 1; fi`` treats the missing fields as a failure.
         r = _invoke(["info", "--check"], cwd=self.workspace)
         self.assertEqual(r.returncode, 2, r.stderr)
@@ -276,7 +276,7 @@ class InfoSubcommandTests(unittest.TestCase):
         # treats an unreachable object as a defect.
         self._open_ledger()
         _invoke(["seam", "--json"], cwd=self.workspace)
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         data[0]["t"] = int(time.time()) - 2 * 1800  # 2 * RESUME_GAP
         history.write_text(json.dumps(data), encoding="utf-8")
@@ -309,7 +309,7 @@ class InfoSubcommandTests(unittest.TestCase):
         _invoke(["seam", "--json"], cwd=self.workspace)
         r = _invoke(["info", "--memory"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("── j-space ─ info memory", r.stdout)
+        self.assertIn("── mindseam ─ info memory", r.stdout)
         # Bytes < 1K render as ``N bytes``; bytes >= 1K render
         # as ``N.N KB`` and so on. The history file is small in
         # tests, so we accept any human unit here.
@@ -345,7 +345,7 @@ class InfoSubcommandTests(unittest.TestCase):
         r = _invoke(["info", "--list-fields"], cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
         for section in ("ledger", "history_row", "info_payload"):
-            self.assertIn("── j-space ─ info %s" % section, r.stdout)
+            self.assertIn("── mindseam ─ info %s" % section, r.stdout)
         # The text renderer names the field and the doc string
         # for every section, so a host can grep the field name
         # out of the output and read the doc that follows.

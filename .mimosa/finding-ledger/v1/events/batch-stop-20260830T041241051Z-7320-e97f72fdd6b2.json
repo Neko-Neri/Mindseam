@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20260830T041241051Z-7320-e97f72fdd6b2",
+  "runId": "20260830T041241051Z-7320-e97f72fdd6b2",
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "bd319d8a86d176ee12adb7bba5c3dae716a768a0",
+  "diffHash": "15f77064e5b008a97904476ffdcd2ff5871285efb3c67a8c0cd5f8506f314834",
+  "rulesVersion": "unavailable",
+  "sessionHash": "5baef3bf4e15975f080d4fe2ae392233eaa67d2a78152a4cafa1c67e85967c12",
+  "reportRef": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff-20260830T041241051Z-7320-e97f72fdd6b2.json",
+  "events": [],
+  "observedFindingIds": [],
+  "verifiedFiles": [
+    {
+      "file": "tests/test_history_subcommand_baseline.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "j-space/scripts/jspace.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "tests/test_info_subcommand_baseline.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    },
+    {
+      "file": "jspace_dbg.py",
+      "direct": "complete",
+      "projectContext": "partial"
+    }
+  ],
+  "recordedAt": "2026-08-30T04:12:41.546Z"
+}

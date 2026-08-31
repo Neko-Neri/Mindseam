@@ -1,10 +1,10 @@
-# J-Space Cognition Suite V3.6
+# Mindseam Cognition Suite V3.6
 
 [简体中文](README.zh-CN.md)
 
 [![DOI](https://zenodo.org/badge/1308234922.svg)](https://zenodo.org/badge/latestdoi/1308234922)
 
-J-Space Cognition Suite is a model-agnostic inference-time control system for deep reasoning,
+Mindseam Cognition Suite is a model-agnostic inference-time control system for deep reasoning,
 long-horizon work, tool use, verification, and recovery. It is packaged as a Skill for
 cross-platform use, selective loading, and low-friction integration.
 
@@ -12,7 +12,7 @@ The suite organizes an agent's accessible working representations into a deliber
 workspace. It operates through a single entry, eleven selectively loaded modules, three supporting
 references, and an optional standard-library controller for durable task state.
 
-J-Space operates at inference time. Model weights and training remain unchanged.
+Mindseam operates at inference time. Model weights and training remain unchanged.
 
 ## Quick start
 
@@ -20,12 +20,12 @@ J-Space operates at inference time. Model weights and training remain unchanged.
 
 1. Download or clone this repository.
 2. Locate the user-level Skills directory used by your AI host.
-3. Copy the complete [`j-space/`](j-space/) directory into it so that the installed entry is
-   `<skills-directory>/j-space/SKILL.md`.
+3. Copy the complete [`mindseam/`](mindseam/) directory into it so that the installed entry is
+   `<skills-directory>/mindseam/SKILL.md`.
 4. Run the integrity check with an available Python 3 interpreter:
 
    ```text
-   <python-command> <skills-directory>/j-space/scripts/verify_suite.py
+   <python-command> <skills-directory>/mindseam/scripts/verify_suite.py
    ```
 
    Replace `<python-command>` with the Python 3 command available on the host, commonly
@@ -37,20 +37,20 @@ The directory must remain intact because `SKILL.md` routes to relative paths und
 `references/`, and `scripts/`.
 
 The repository-level `LICENSE` and `THIRD_PARTY_NOTICES.md` remain part of the distribution.
-Include copies of both when redistributing `j-space/` as a standalone package.
+Include copies of both when redistributing `mindseam/` as a standalone package.
 
 ### Option B — ask an AI agent to install it
 
 Copy the following prompt into an agent that can access files and this repository:
 
 ```text
-Install J-Space Cognition Suite from
-https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6
+Install Mindseam Cognition Suite from
+https://github.com/Tiger3807861189/Mindseam-Cognition-Suite-V3.6
 into this environment's user-level Skills directory.
 
 First inspect the host configuration or documentation to locate the correct Skills directory.
-Install the complete j-space/ directory as j-space/, preserving SKILL.md, modules/, references/,
-and scripts/. If a j-space target already exists, compare it and ask before replacing anything.
+Install the complete mindseam/ directory as mindseam/, preserving SKILL.md, modules/, references/,
+and scripts/. If a mindseam target already exists, compare it and ask before replacing anything.
 Run scripts/verify_suite.py with an available Python 3 interpreter after installation.
 
 When finished, report the installed path and verification result, then tell me how this host
@@ -63,10 +63,10 @@ installation.
 ### Use it
 
 Invoke the Skill through the mechanism provided by your host—such as its Skill picker,
-`/j-space`, `$j-space`, or a direct request:
+`/mindseam`, `$mindseam`, or a direct request:
 
 ```text
-Use j-space for this task. Audit this repository, preserve its architecture,
+Use mindseam for this task. Audit this repository, preserve its architecture,
 verify every finding, and keep the work consistent across all affected files.
 ```
 
@@ -99,8 +99,8 @@ The mechanisms are selectively loaded. They are not a fixed checklist for every 
 
 ## Optional controller
 
-[`j-space/scripts/jspace.py`](j-space/scripts/jspace.py) externalizes `loop` state into
-`.jspace/` in the current task workspace. Invoke it by its resolved Skill path while keeping
+[`mindseam/scripts/mindseam.py`](mindseam/scripts/mindseam.py) externalizes `loop` state into
+`.mindseam/` in the current task workspace. Invoke it by its resolved Skill path while keeping
 the task workspace as the current directory.
 
 | Command | Purpose |
@@ -131,60 +131,60 @@ the task workspace as the current directory.
 | `discover --json` | Same, machine-readable JSON |
 
 ```text
-<python-command> <skill-root>/scripts/jspace.py note --goal "what done means" --next "first action"
-<python-command> <skill-root>/scripts/jspace.py note --close 1 --check "what now holds" --by "verifier and coverage"
-<python-command> <skill-root>/scripts/jspace.py seam
-<python-command> <skill-root>/scripts/jspace.py seam --json
-<python-command> <skill-root>/scripts/jspace.py seam --dry-run
-<python-command> <skill-root>/scripts/jspace.py seam --quiet
-<python-command> <skill-root>/scripts/jspace.py seam --message "TICKET-101"
-<python-command> <skill-root>/scripts/jspace.py seam --from-stdin
-<python-command> <skill-root>/scripts/jspace.py ship OUTPUT_FILE
-<python-command> <skill-root>/scripts/jspace.py resume
-<python-command> <skill-root>/scripts/jspace.py skillbook
-<python-command> <skill-root>/scripts/jspace.py skillbook --json
-<python-command> <skill-root>/scripts/jspace.py info
-<python-command> <skill-root>/scripts/jspace.py info --json
-<python-command> <skill-root>/scripts/jspace.py info --warnings-only
-<python-command> <skill-root>/scripts/jspace.py info --version
-<python-command> <skill-root>/scripts/jspace.py info --human
-<python-command> <skill-root>/scripts/jspace.py info --check
-<python-command> <skill-root>/scripts/jspace.py info --memory
-<python-command> <skill-root>/scripts/jspace.py info --list-fields
-<python-command> <skill-root>/scripts/jspace.py history
-<python-command> <skill-root>/scripts/jspace.py history --head 5
-<python-command> <skill-root>/scripts/jspace.py history --tail 5
-<python-command> <skill-root>/scripts/jspace.py history -c
-<python-command> <skill-root>/scripts/jspace.py history --first-match
-<python-command> <skill-root>/scripts/jspace.py history --fields next
-<python-command> <skill-root>/scripts/jspace.py history --format "%h %n"
-<python-command> <skill-root>/scripts/jspace.py history --csv
-<python-command> <skill-root>/scripts/jspace.py history --domains
-<python-command> <skill-root>/scripts/jspace.py history --span
-<python-command> <skill-root>/scripts/jspace.py history -n 5
-<python-command> <skill-root>/scripts/jspace.py history --grep TODO
-<python-command> <skill-root>/scripts/jspace.py history --exclude TODO
-<python-command> <skill-root>/scripts/jspace.py history --until 3600
-<python-command> <skill-root>/scripts/jspace.py history --keep 500
-<python-command> <skill-root>/scripts/jspace.py history --dedup
-<python-command> <skill-root>/scripts/jspace.py history --dedup-by-msg
-<python-command> <skill-root>/scripts/jspace.py history --row-id 3
-<python-command> <skill-root>/scripts/jspace.py history --empty
-<python-command> <skill-root>/scripts/jspace.py history --quiet
-<python-command> <skill-root>/scripts/jspace.py history --since 3600
-<python-command> <skill-root>/scripts/jspace.py history --reverse
-<python-command> <skill-root>/scripts/jspace.py history --json
-<python-command> <skill-root>/scripts/jspace.py discover
-<python-command> <skill-root>/scripts/jspace.py discover --json
+<python-command> <skill-root>/scripts/mindseam.py note --goal "what done means" --next "first action"
+<python-command> <skill-root>/scripts/mindseam.py note --close 1 --check "what now holds" --by "verifier and coverage"
+<python-command> <skill-root>/scripts/mindseam.py seam
+<python-command> <skill-root>/scripts/mindseam.py seam --json
+<python-command> <skill-root>/scripts/mindseam.py seam --dry-run
+<python-command> <skill-root>/scripts/mindseam.py seam --quiet
+<python-command> <skill-root>/scripts/mindseam.py seam --message "TICKET-101"
+<python-command> <skill-root>/scripts/mindseam.py seam --from-stdin
+<python-command> <skill-root>/scripts/mindseam.py ship OUTPUT_FILE
+<python-command> <skill-root>/scripts/mindseam.py resume
+<python-command> <skill-root>/scripts/mindseam.py skillbook
+<python-command> <skill-root>/scripts/mindseam.py skillbook --json
+<python-command> <skill-root>/scripts/mindseam.py info
+<python-command> <skill-root>/scripts/mindseam.py info --json
+<python-command> <skill-root>/scripts/mindseam.py info --warnings-only
+<python-command> <skill-root>/scripts/mindseam.py info --version
+<python-command> <skill-root>/scripts/mindseam.py info --human
+<python-command> <skill-root>/scripts/mindseam.py info --check
+<python-command> <skill-root>/scripts/mindseam.py info --memory
+<python-command> <skill-root>/scripts/mindseam.py info --list-fields
+<python-command> <skill-root>/scripts/mindseam.py history
+<python-command> <skill-root>/scripts/mindseam.py history --head 5
+<python-command> <skill-root>/scripts/mindseam.py history --tail 5
+<python-command> <skill-root>/scripts/mindseam.py history -c
+<python-command> <skill-root>/scripts/mindseam.py history --first-match
+<python-command> <skill-root>/scripts/mindseam.py history --fields next
+<python-command> <skill-root>/scripts/mindseam.py history --format "%h %n"
+<python-command> <skill-root>/scripts/mindseam.py history --csv
+<python-command> <skill-root>/scripts/mindseam.py history --domains
+<python-command> <skill-root>/scripts/mindseam.py history --span
+<python-command> <skill-root>/scripts/mindseam.py history -n 5
+<python-command> <skill-root>/scripts/mindseam.py history --grep TODO
+<python-command> <skill-root>/scripts/mindseam.py history --exclude TODO
+<python-command> <skill-root>/scripts/mindseam.py history --until 3600
+<python-command> <skill-root>/scripts/mindseam.py history --keep 500
+<python-command> <skill-root>/scripts/mindseam.py history --dedup
+<python-command> <skill-root>/scripts/mindseam.py history --dedup-by-msg
+<python-command> <skill-root>/scripts/mindseam.py history --row-id 3
+<python-command> <skill-root>/scripts/mindseam.py history --empty
+<python-command> <skill-root>/scripts/mindseam.py history --quiet
+<python-command> <skill-root>/scripts/mindseam.py history --since 3600
+<python-command> <skill-root>/scripts/mindseam.py history --reverse
+<python-command> <skill-root>/scripts/mindseam.py history --json
+<python-command> <skill-root>/scripts/mindseam.py discover
+<python-command> <skill-root>/scripts/mindseam.py discover --json
 ```
 
 The controller records and reports state. Solution choice remains with the model. It uses the
-Python standard library and writes working state only under the task's `.jspace/` directory.
+Python standard library and writes working state only under the task's `.mindseam/` directory.
 
 ## Generic model integration
 
-An environment with a native Skill loader can install `j-space/` directly. For a chat or API
-environment, provide [`j-space/SKILL.md`](j-space/SKILL.md) as a system- or developer-level
+An environment with a native Skill loader can install `mindseam/` directly. For a chat or API
+environment, provide [`mindseam/SKILL.md`](mindseam/SKILL.md) as a system- or developer-level
 instruction and expose `modules/` and `references/` through file or retrieval tools.
 
 Selected files should be retrieved on demand. Selective loading is part of the operating design.
@@ -193,42 +193,42 @@ Selected files should be retrieved on demand. Selective loading is part of the o
 
 ```text
 # Step 1: install (10 seconds)
-git clone https://github.com/yzfly/J-Space-Cognition-Suite-V3.6.git
-cd J-Space-Cognition-Suite-V3.6
-# Copy j-space/ into your skills directory or project root
+git clone https://github.com/yzfly/Mindseam-Cognition-Suite-V3.6.git
+cd Mindseam-Cognition-Suite-V3.6
+# Copy mindseam/ into your skills directory or project root
 ```
 
 ```text
 # Step 2: open the register on a task that needs depth (10 seconds)
-jspace note --goal "build a high-concurrency chat API" --next "design the interface signature"
+mindseam note --goal "build a high-concurrency chat API" --next "design the interface signature"
 # The ledger now has Goal and Next; the controller starts tracking state
 ```
 
 ```text
 # Step 3: run seam after each meaningful sub-task (~1 min total)
 # After doing design work:
-jspace seam
+mindseam seam
 # → prints ledger + recent movement
-# → auto-writes .jspace/skillbook.md if recurring problems were hit
+# → auto-writes .mindseam/skillbook.md if recurring problems were hit
 ```
 
 ```text
 # Step 4: inspect skillbook when stuck
-jspace skillbook
-# → prints .jspace/skillbook.md
+mindseam skillbook
+# → prints .mindseam/skillbook.md
 # → tells you: which errors recurred, which domains cost extra steps
 ```
 
 ```text
 # Step 5: delivery gate
-jspace ship output.md
+mindseam ship output.md
 # → checks outgoing text for inner-register leakage
 # → exit 0 if clean
 ```
 
 ```text
 # Step 6: resume after a long break
-jspace resume
+mindseam resume
 # → reprints premise + invariants + full ledger
 # → state survives the session gap
 ```
@@ -240,14 +240,14 @@ that no result is reported. HLE is separated into no-tool and tool-enabled condi
 
 ### Evaluation context
 
-The J-Space evaluations on DeepSeek were configured with reference to the official DeepSeek
-Harness minimal-mode setup, with `max` reasoning effort, `temperature = 1.0`, and `top_p = 0.95`. J-Space
+The Mindseam evaluations on DeepSeek were configured with reference to the official DeepSeek
+Harness minimal-mode setup, with `max` reasoning effort, `temperature = 1.0`, and `top_p = 0.95`. Mindseam
 participated across the inference-time workflow through workspace routing, state continuity,
 verification, and recovery.
 
 Results were collected within the project's available evaluation environment. Hardware
 conditions, process isolation, tool availability, and information-access boundaries form part
-of that context. J-Space tends to encourage more initiative and goal-directed exploration,
+of that context. Mindseam tends to encourage more initiative and goal-directed exploration,
 making accessible artifacts and execution traces relevant to observed outcomes.
 
 The table presents project-level benchmark records under these conditions. Comparator values
@@ -262,7 +262,7 @@ level because no stable model-card URL accompanies the source record used here.
 
 ### Model comparison
 
-| Benchmark | DeepSeek V4-Flash-0731 | DeepSeek V4-Flash-0731 + J-Space V3.6 | GLM-5.3 | Kimi-K3 | Opus-4.8 | Fable 5 (w/ fallback) |
+| Benchmark | DeepSeek V4-Flash-0731 | DeepSeek V4-Flash-0731 + Mindseam V3.6 | GLM-5.3 | Kimi-K3 | Opus-4.8 | Fable 5 (w/ fallback) |
 |---|---:|---:|---:|---:|---:|---:|
 | HLE (w/o tools) | 37.8 | 45.5 | — | 43.5 | 49.8 | 53.3 |
 | HLE (w/ tools) | 51.5 | 60.6 | 62.5 | 56.0 | 57.9 | 63.0 |
@@ -277,19 +277,19 @@ level because no stable model-card URL accompanies the source record used here.
 ### Efficiency
 
 These task-level indices retain the same task and model conditions and each records one
-evaluation run. Control is the matched baseline; J-Space is the corresponding suite-assisted
+evaluation run. Control is the matched baseline; Mindseam is the corresponding suite-assisted
 condition. Speed is benchmark score divided by elapsed time, where higher is better. Token cost
 is consumed tokens divided by benchmark score, where lower is better. Elapsed time and token
 count use fixed, uniform scaling coefficients across both conditions. The coefficients affect
 the displayed scale while the within-metric improvement ratio remains comparable.
 
-| Metric | Control | J-Space | Improvement |
+| Metric | Control | Mindseam | Improvement |
 |---|---:|---:|---:|
 | Speed (score/time; higher is better) | 0.43 | 1.09 | 2.53× |
 | Token cost (tokens/score; lower is better) | 2.63 | 1.19 | 2.21× |
 
 Related evaluation material:
-[DeepSeek V4 × J-Space Capability Realization Report](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report).
+[DeepSeek V4 × Mindseam Capability Realization Report](https://github.com/Tiger3807861189/DeepSeek-V4-Mindseam-Capability-Realization-Report).
 
 ## Cross-model compatibility
 
@@ -303,7 +303,7 @@ verification, and recovery. It is independent of a vendor-specific tokenizer or 
 ## Project structure
 
 ```text
-J-Space-Cognition-Suite-V3.6/
+Mindseam-Cognition-Suite-V3.6/
 ├── .github/workflows/verify.yml    # three-platform integrity and regression checks
 ├── CITATION.cff                    # machine-readable citation metadata
 ├── CONTRIBUTING.md                 # contribution and provenance requirements
@@ -312,12 +312,12 @@ J-Space-Cognition-Suite-V3.6/
 ├── README.zh-CN.md                 # Chinese engineering guide
 ├── THIRD_PARTY_NOTICES.md          # attribution and license boundaries for source material
 ├── tests/                          # controller regression tests (test_r*.py rounds)
-└── j-space/
+└── mindseam/
     ├── SKILL.md                    # single entry, gate, routing, and invariants
     ├── modules/                    # eleven selectively loaded protocols
     ├── references/                 # evidence, induction, and worked exemplars
     └── scripts/
-        ├── jspace.py               # optional loop controller
+        ├── mindseam.py               # optional loop controller
         ├── workspace-ledger.md     # ledger template and contract
         └── verify_suite.py         # authoring-time integrity check
 ```
@@ -328,20 +328,20 @@ control system does not become its own source of context pressure.
 Maintainers can verify the package from its root:
 
 ```text
-<python-command> j-space/scripts/verify_suite.py
+<python-command> mindseam/scripts/verify_suite.py
 <python-command> -m unittest discover -s tests -v
 ```
 
 ## Technical basis and scope
 
-J-Space uses the operational workspace terminology established by Anthropic's related
+Mindseam uses the operational workspace terminology established by Anthropic's related
 interpretability research. Within this suite, first-person language is treated as control
 grammar: accessible state descriptions are bound to explicit actions, checks, and settles.
 
 The suite focuses on observable functional properties—reportability, deliberate maintenance,
 intermediate computation, broadcast, monitoring, and causal sensitivity. Detailed research
 interpretation, terminology, evidence boundaries, and sources are maintained in
-[`j-space/references/j-space-science.md`](j-space/references/j-space-science.md).
+[`mindseam/references/mindseam-science.md`](mindseam/references/mindseam-science.md).
 
 Design principle:
 
@@ -351,7 +351,7 @@ Use only the machinery the task earns.
 
 ## Release history
 
-J-Space has progressed through:
+Mindseam has progressed through:
 
 **V1 → V1.5 → V1.8 → V2 → V2.5 → V2.6 → V3 → V3.1 → V3.2 → V3.5 → V3.5Turbo → V3.6**
 
@@ -361,20 +361,20 @@ three-platform CI, Apache-2.0 licensing, and machine-readable citation metadata.
 
 ## Citation
 
-If you use J-Space in research, please cite the accompanying paper when it becomes available.
+If you use Mindseam in research, please cite the accompanying paper when it becomes available.
 For engineering use, cite this repository:
 
-> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6* (Version 3.6). Zenodo.
+> Tiger3807861189. (2026). *Mindseam Cognition Suite V3.6* (Version 3.6). Zenodo.
 > https://doi.org/10.5281/zenodo.21977271
 
 ```bibtex
-@software{j-space-cognition-suite,
+@software{mindseam-cognition-suite,
   author  = {Tiger3807861189},
-  title   = {{J-Space} Cognition Suite V3.6},
+  title   = {{Mindseam} Cognition Suite V3.6},
   year    = {2026},
   version = {3.6},
   doi     = {10.5281/zenodo.21977271},
-  url     = {https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6}
+  url     = {https://github.com/Tiger3807861189/Mindseam-Cognition-Suite-V3.6}
 }
 ```
 
@@ -386,10 +386,10 @@ licensing and third-party notices; the fixed snapshot is not a live mirror of th
 
 ## License
 
-J-Space Cognition Suite is released under the
+Mindseam Cognition Suite is released under the
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). It permits use,
 modification, redistribution, and commercial integration under its notice and patent terms.
 See [`LICENSE`](LICENSE) for the complete terms. Quoted or summarized external source material
 remains subject to its source terms and is identified in
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-When redistributing only the runtime `j-space/` directory, carry both root files with it.
+When redistributing only the runtime `mindseam/` directory, carry both root files with it.

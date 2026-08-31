@@ -1,16 +1,16 @@
-# J-Space Cognition Suite V3.6
+# Mindseam Cognition Suite V3.6
 
 [English](README.md)
 
 [![DOI](https://zenodo.org/badge/1308234922.svg)](https://zenodo.org/badge/latestdoi/1308234922)
 
-J-Space Cognition Suite 是一套面向深度推理、长程工作、工具调用、验证与恢复的模型无关
+Mindseam Cognition Suite 是一套面向深度推理、长程工作、工具调用、验证与恢复的模型无关
 推理时控制系统。它以 Skill 形式封装，从而支持跨平台使用、选择性加载与低摩擦集成。
 
 套件将智能体可访问的工作表征组织为一个可主动管理的工作空间。整体由一个入口、十一个按需
 加载的模块、三份支撑资料，以及一个用于保存长任务状态的可选标准库控制器组成。
 
-J-Space 在推理阶段运行，模型权重和训练过程保持原有状态。
+Mindseam 在推理阶段运行，模型权重和训练过程保持原有状态。
 
 ## 快速开始
 
@@ -18,12 +18,12 @@ J-Space 在推理阶段运行，模型权重和训练过程保持原有状态。
 
 1. 下载或克隆本仓库。
 2. 找到当前 AI 宿主使用的用户级 Skills 目录。
-3. 将完整的 [`j-space/`](j-space/) 目录复制进去，确保最终入口位于
-   `<Skills 目录>/j-space/SKILL.md`。
+3. 将完整的 [`mindseam/`](mindseam/) 目录复制进去，确保最终入口位于
+   `<Skills 目录>/mindseam/SKILL.md`。
 4. 使用可用的 Python 3 解释器运行完整性检查：
 
    ```text
-   <python-command> <Skills 目录>/j-space/scripts/verify_suite.py
+   <python-command> <Skills 目录>/mindseam/scripts/verify_suite.py
    ```
 
    请将 `<python-command>` 替换为宿主可用的 Python 3 命令，常见形式包括 `python`、
@@ -31,23 +31,23 @@ J-Space 在推理阶段运行，模型权重和训练过程保持原有状态。
 
 5. 如果宿主只在启动时发现 Skills，请重新加载宿主。
 
-`j-space/` 目录应保持完整，因为 `SKILL.md` 会通过相对路径访问 `modules/`、
+`mindseam/` 目录应保持完整，因为 `SKILL.md` 会通过相对路径访问 `modules/`、
 `references/` 和 `scripts/`。
 
 仓库根目录的 `LICENSE` 与 `THIRD_PARTY_NOTICES.md` 仍属于分发内容。若单独再分发
-`j-space/`，应同时附带这两个文件的副本。
+`mindseam/`，应同时附带这两个文件的副本。
 
 ### 方式 B：让 AI 安装
 
 把下面的提示词复制给能够访问文件和本仓库的 AI 智能体：
 
 ```text
-请从以下仓库安装 J-Space Cognition Suite：
-https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6
+请从以下仓库安装 Mindseam Cognition Suite：
+https://github.com/Tiger3807861189/Mindseam-Cognition-Suite-V3.6
 
-请先检查当前宿主的配置或文档，确认用户级 Skills 目录。将仓库中的完整 j-space/
-目录安装为 j-space/，并保持 SKILL.md、modules/、references/ 和 scripts/ 的相对
-结构。如果目标位置已经存在 j-space，请先比较并询问我，再执行替换。
+请先检查当前宿主的配置或文档，确认用户级 Skills 目录。将仓库中的完整 mindseam/
+目录安装为 mindseam/，并保持 SKILL.md、modules/、references/ 和 scripts/ 的相对
+结构。如果目标位置已经存在 mindseam，请先比较并询问我，再执行替换。
 
 安装后，请使用可用的 Python 3 解释器运行 scripts/verify_suite.py。完成后告诉我
 安装路径和校验结果，并说明当前宿主应如何调用这个 Skill。请简要解释 fast、full、
@@ -58,10 +58,10 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 
 ### 开始使用
 
-通过宿主提供的 Skill 选择器、`/j-space`、`$j-space`，或者直接要求 AI 使用：
+通过宿主提供的 Skill 选择器、`/mindseam`、`$mindseam`，或者直接要求 AI 使用：
 
 ```text
-请在这个任务中使用 j-space。审查这个仓库，保持现有架构，逐项验证发现，
+请在这个任务中使用 mindseam。审查这个仓库，保持现有架构，逐项验证发现，
 并在所有受影响文件之间维持一致状态。
 ```
 
@@ -94,8 +94,8 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 
 ## 可选控制器
 
-[`j-space/scripts/jspace.py`](j-space/scripts/jspace.py) 将 `loop` 状态外化到当前任务
-工作区的 `.jspace/` 中。调用时使用脚本在 Skill 中的实际路径，并保持任务工作区为
+[`mindseam/scripts/mindseam.py`](mindseam/scripts/mindseam.py) 将 `loop` 状态外化到当前任务
+工作区的 `.mindseam/` 中。调用时使用脚本在 Skill 中的实际路径，并保持任务工作区为
 当前目录。
 
 | 命令 | 用途 |
@@ -129,60 +129,60 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `discover --json` | 同上，机器可读 JSON |
 
 ```text
-<python-command> <skill-root>/scripts/jspace.py note --goal "完成条件" --next "第一个动作"
-<python-command> <skill-root>/scripts/jspace.py note --close 1 --check "当前成立的结论" --by "验证方式与覆盖范围"
-<python-command> <skill-root>/scripts/jspace.py seam
-<python-command> <skill-root>/scripts/jspace.py seam --json
-<python-command> <skill-root>/scripts/jspace.py seam --dry-run
-<python-command> <skill-root>/scripts/jspace.py seam --quiet
-<python-command> <skill-root>/scripts/jspace.py seam --message "TICKET-101"
-<python-command> <skill-root>/scripts/jspace.py seam --from-stdin
-<python-command> <skill-root>/scripts/jspace.py ship OUTPUT_FILE
-<python-command> <skill-root>/scripts/jspace.py resume
-<python-command> <skill-root>/scripts/jspace.py skillbook
-<python-command> <skill-root>/scripts/jspace.py skillbook --json
-<python-command> <skill-root>/scripts/jspace.py info
-<python-command> <skill-root>/scripts/jspace.py info --json
-<python-command> <skill-root>/scripts/jspace.py info --warnings-only
-<python-command> <skill-root>/scripts/jspace.py info --version
-<python-command> <skill-root>/scripts/jspace.py info --human
-<python-command> <skill-root>/scripts/jspace.py info --check
-<python-command> <skill-root>/scripts/jspace.py info --memory
-<python-command> <skill-root>/scripts/jspace.py info --list-fields
-<python-command> <skill-root>/scripts/jspace.py history
-<python-command> <skill-root>/scripts/jspace.py history --head 5
-<python-command> <skill-root>/scripts/jspace.py history --tail 5
-<python-command> <skill-root>/scripts/jspace.py history -c
-<python-command> <skill-root>/scripts/jspace.py history --first-match
-<python-command> <skill-root>/scripts/jspace.py history --fields next
-<python-command> <skill-root>/scripts/jspace.py history --format "%h %n"
-<python-command> <skill-root>/scripts/jspace.py history --csv
-<python-command> <skill-root>/scripts/jspace.py history --domains
-<python-command> <skill-root>/scripts/jspace.py history --span
-<python-command> <skill-root>/scripts/jspace.py history -n 5
-<python-command> <skill-root>/scripts/jspace.py history --grep TODO
-<python-command> <skill-root>/scripts/jspace.py history --exclude TODO
-<python-command> <skill-root>/scripts/jspace.py history --until 3600
-<python-command> <skill-root>/scripts/jspace.py history --keep 500
-<python-command> <skill-root>/scripts/jspace.py history --dedup
-<python-command> <skill-root>/scripts/jspace.py history --dedup-by-msg
-<python-command> <skill-root>/scripts/jspace.py history --row-id 3
-<python-command> <skill-root>/scripts/jspace.py history --empty
-<python-command> <skill-root>/scripts/jspace.py history --quiet
-<python-command> <skill-root>/scripts/jspace.py history --since 3600
-<python-command> <skill-root>/scripts/jspace.py history --reverse
-<python-command> <skill-root>/scripts/jspace.py history --json
-<python-command> <skill-root>/scripts/jspace.py discover
-<python-command> <skill-root>/scripts/jspace.py discover --json
+<python-command> <skill-root>/scripts/mindseam.py note --goal "完成条件" --next "第一个动作"
+<python-command> <skill-root>/scripts/mindseam.py note --close 1 --check "当前成立的结论" --by "验证方式与覆盖范围"
+<python-command> <skill-root>/scripts/mindseam.py seam
+<python-command> <skill-root>/scripts/mindseam.py seam --json
+<python-command> <skill-root>/scripts/mindseam.py seam --dry-run
+<python-command> <skill-root>/scripts/mindseam.py seam --quiet
+<python-command> <skill-root>/scripts/mindseam.py seam --message "TICKET-101"
+<python-command> <skill-root>/scripts/mindseam.py seam --from-stdin
+<python-command> <skill-root>/scripts/mindseam.py ship OUTPUT_FILE
+<python-command> <skill-root>/scripts/mindseam.py resume
+<python-command> <skill-root>/scripts/mindseam.py skillbook
+<python-command> <skill-root>/scripts/mindseam.py skillbook --json
+<python-command> <skill-root>/scripts/mindseam.py info
+<python-command> <skill-root>/scripts/mindseam.py info --json
+<python-command> <skill-root>/scripts/mindseam.py info --warnings-only
+<python-command> <skill-root>/scripts/mindseam.py info --version
+<python-command> <skill-root>/scripts/mindseam.py info --human
+<python-command> <skill-root>/scripts/mindseam.py info --check
+<python-command> <skill-root>/scripts/mindseam.py info --memory
+<python-command> <skill-root>/scripts/mindseam.py info --list-fields
+<python-command> <skill-root>/scripts/mindseam.py history
+<python-command> <skill-root>/scripts/mindseam.py history --head 5
+<python-command> <skill-root>/scripts/mindseam.py history --tail 5
+<python-command> <skill-root>/scripts/mindseam.py history -c
+<python-command> <skill-root>/scripts/mindseam.py history --first-match
+<python-command> <skill-root>/scripts/mindseam.py history --fields next
+<python-command> <skill-root>/scripts/mindseam.py history --format "%h %n"
+<python-command> <skill-root>/scripts/mindseam.py history --csv
+<python-command> <skill-root>/scripts/mindseam.py history --domains
+<python-command> <skill-root>/scripts/mindseam.py history --span
+<python-command> <skill-root>/scripts/mindseam.py history -n 5
+<python-command> <skill-root>/scripts/mindseam.py history --grep TODO
+<python-command> <skill-root>/scripts/mindseam.py history --exclude TODO
+<python-command> <skill-root>/scripts/mindseam.py history --until 3600
+<python-command> <skill-root>/scripts/mindseam.py history --keep 500
+<python-command> <skill-root>/scripts/mindseam.py history --dedup
+<python-command> <skill-root>/scripts/mindseam.py history --dedup-by-msg
+<python-command> <skill-root>/scripts/mindseam.py history --row-id 3
+<python-command> <skill-root>/scripts/mindseam.py history --empty
+<python-command> <skill-root>/scripts/mindseam.py history --quiet
+<python-command> <skill-root>/scripts/mindseam.py history --since 3600
+<python-command> <skill-root>/scripts/mindseam.py history --reverse
+<python-command> <skill-root>/scripts/mindseam.py history --json
+<python-command> <skill-root>/scripts/mindseam.py discover
+<python-command> <skill-root>/scripts/mindseam.py discover --json
 ```
 
 控制器负责记录和报告状态，解法仍由模型选择。它只使用 Python 标准库，并且只在任务的
-`.jspace/` 目录中写入工作状态。
+`.mindseam/` 目录中写入工作状态。
 
 ## 通用模型接入
 
-具有原生 Skill 加载能力的环境可以直接安装 `j-space/`。对于聊天或 API 环境，可将
-[`j-space/SKILL.md`](j-space/SKILL.md) 作为 system 或 developer 指令，并通过文件
+具有原生 Skill 加载能力的环境可以直接安装 `mindseam/`。对于聊天或 API 环境，可将
+[`mindseam/SKILL.md`](mindseam/SKILL.md) 作为 system 或 developer 指令，并通过文件
 工具或检索工具开放 `modules/` 与 `references/`。
 
 相关文件按需检索；选择性加载本身就是运行设计的一部分。
@@ -191,42 +191,42 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 
 ```text
 # 第一步：安装（10 秒）
-git clone https://github.com/yzfly/J-Space-Cognition-Suite-V3.6.git
-cd J-Space-Cognition-Suite-V3.6
-# 将 j-space/ 目录复制到你的技能目录或项目根目录
+git clone https://github.com/yzfly/Mindseam-Cognition-Suite-V3.6.git
+cd Mindseam-Cognition-Suite-V3.6
+# 将 mindseam/ 目录复制到你的技能目录或项目根目录
 ```
 
 ```text
 # 第二步：在一个需要深入推理的任务里打开心力（10 秒）
-jspace note --goal "构建一个能处理 10 万并发的聊天 API" --next "设计接口签名"
+mindseam note --goal "构建一个能处理 10 万并发的聊天 API" --next "设计接口签名"
 # 现在 ledger 有了 `Goal` 和 `Next`，控制器开始跟踪状态
 ```
 
 ```text
 # 第三步：每完成一个子任务，跑一次 seam（加总 1 分钟）
 # 做了一些设计工作之后：
-jspace seam
+mindseam seam
 # → 打印 ledger + 最近移动了什么
-# → 自动写入 .jspace/skillbook.md（如果遇到了反复问题）
+# → 自动写入 .mindseam/skillbook.md（如果遇到了反复问题）
 ```
 
 ```text
 # 第四步：遇到反复问题，看 skillbook
-jspace skillbook
-# → 打印 .jspace/skillbook.md 内容
+mindseam skillbook
+# → 打印 .mindseam/skillbook.md 内容
 # → 告诉你：哪些错误重复出现，哪些域反复消耗额外步骤
 ```
 
 ```text
 # 第五步：准备交付前，跑 ship
-jspace ship output.md
+mindseam ship output.md
 # → 检查输出是否夹带内部符号（inner-only leakage）
 # → 如果没有问题，退出码 0
 ```
 
 ```text
 # 第六步：换会话回来时， resume
-jspace resume
+mindseam resume
 # → 重新打印 premise + invariants + 完整 ledger
 # → 不会丢失跨会话的状态
 ```
@@ -238,12 +238,12 @@ HLE 分为无工具与启用工具两种条件。
 
 ### 评测上下文
 
-在 DeepSeek 上评测 J-Space 时，评测配置参照官方 Harness 极简模式，采用 `max` reasoning effort、
-`temperature = 1.0` 与 `top_p = 0.95`。J-Space 通过工作空间路由、状态连续性、
+在 DeepSeek 上评测 Mindseam 时，评测配置参照官方 Harness 极简模式，采用 `max` reasoning effort、
+`temperature = 1.0` 与 `top_p = 0.95`。Mindseam 通过工作空间路由、状态连续性、
 验证与恢复参与完整的推理时运行流程。
 
 结果形成于项目现有的评测环境。硬件条件、进程隔离、工具可用性与信息访问边界共同构成
-评测上下文。J-Space 倾向于增强模型的主动性与目标导向探索，因此，可访问资料及执行
+评测上下文。Mindseam 倾向于增强模型的主动性与目标导向探索，因此，可访问资料及执行
 轨迹也可能影响观测结果。
 
 表格汇总了上述条件下的项目级 Benchmark 记录。其他模型的数据保留各厂商公开评测时的
@@ -257,7 +257,7 @@ HLE 分为无工具与启用工具两种条件。
 
 ### 模型对比
 
-| Benchmark | DeepSeek V4-Flash-0731 | DeepSeek V4-Flash-0731 + J-Space V3.6 | GLM-5.3 | Kimi-K3 | Opus-4.8 | Fable 5（含 fallback） |
+| Benchmark | DeepSeek V4-Flash-0731 | DeepSeek V4-Flash-0731 + Mindseam V3.6 | GLM-5.3 | Kimi-K3 | Opus-4.8 | Fable 5（含 fallback） |
 |---|---:|---:|---:|---:|---:|---:|
 | HLE（无工具） | 37.8 | 45.5 | — | 43.5 | 49.8 | 53.3 |
 | HLE（有工具） | 51.5 | 60.6 | 62.5 | 56.0 | 57.9 | 63.0 |
@@ -272,17 +272,17 @@ HLE 分为无工具与启用工具两种条件。
 ### 效率
 
 以下任务级指标保持相同的任务与模型条件，每项记录对应一次评测运行。Control 表示匹配的
-基线条件，J-Space 表示相应的套件辅助条件。速度为 Benchmark 得分除以耗时，数值越高越好；
+基线条件，Mindseam 表示相应的套件辅助条件。速度为 Benchmark 得分除以耗时，数值越高越好；
 Token 成本为消耗 Token 数除以 Benchmark 得分，数值越低越好。两种条件下的耗时和 Token
 数采用固定且统一的系数缩放；该系数影响展示尺度，同一指标内的改进比率仍可直接比较。
 
-| 指标 | Control | J-Space | 改进比率 |
+| 指标 | Control | Mindseam | 改进比率 |
 |---|---:|---:|---:|
 | 速度（得分/时间，越高越好） | 0.43 | 1.09 | 2.53× |
 | Token 成本（Token/得分，越低越好） | 2.63 | 1.19 | 2.21× |
 
 相关评测材料：
-[DeepSeek V4 × J-Space 能力释放报告](https://github.com/Tiger3807861189/DeepSeek-V4-J-Space-Capability-Realization-Report)。
+[DeepSeek V4 × Mindseam 能力释放报告](https://github.com/Tiger3807861189/DeepSeek-V4-Mindseam-Capability-Realization-Report)。
 
 ## 跨模型兼容性
 
@@ -295,7 +295,7 @@ Token 成本为消耗 Token 数除以 Benchmark 得分，数值越低越好。�
 ## 项目结构
 
 ```text
-J-Space-Cognition-Suite-V3.6/
+Mindseam-Cognition-Suite-V3.6/
 ├── .github/workflows/verify.yml    # 三平台完整性检查和回归测试
 ├── CITATION.cff                    # 机器可读的引用元数据
 ├── CONTRIBUTING.md                 # 贡献与来源说明要求
@@ -303,13 +303,13 @@ J-Space-Cognition-Suite-V3.6/
 ├── README.md                       # 英文工程指南
 ├── README.zh-CN.md                 # 中文工程指南
 ├── THIRD_PARTY_NOTICES.md          # 外部材料的归属与许可边界
-├── tests/test_jspace.py            # 标准库控制器回归测试
-└── j-space/
+├── tests/test_mindseam.py            # 标准库控制器回归测试
+└── mindseam/
     ├── SKILL.md                    # 唯一入口、门控、路由与 invariants
     ├── modules/                    # 十一个按需加载的协议模块
     ├── references/                 # 证据、诱导方法与工作示例
     └── scripts/
-        ├── jspace.py               # 可选 loop 控制器
+        ├── mindseam.py               # 可选 loop 控制器
         ├── workspace-ledger.md     # 账本模板和契约
         └── verify_suite.py         # 编写期完整性检查
 ```
@@ -319,18 +319,18 @@ J-Space-Cognition-Suite-V3.6/
 维护者可以在套件根目录运行：
 
 ```text
-<python-command> j-space/scripts/verify_suite.py
+<python-command> mindseam/scripts/verify_suite.py
 <python-command> -m unittest discover -s tests -v
 ```
 
 ## 技术依据与适用边界
 
-J-Space 采用 Anthropic 相关可解释性研究建立的操作性工作空间术语。在本套件中，第一人称
+Mindseam 采用 Anthropic 相关可解释性研究建立的操作性工作空间术语。在本套件中，第一人称
 语言被作为一种控制语法：可访问状态描述会绑定到明确的动作、检查与收束。
 
 套件关注可报告性、主动保持、中间计算、广播、监控和因果敏感性等可观察功能属性。详细的
 研究解释、术语、证据边界与来源维护在
-[`j-space/references/j-space-science.md`](j-space/references/j-space-science.md) 中。
+[`mindseam/references/mindseam-science.md`](mindseam/references/mindseam-science.md) 中。
 
 设计原则：
 
@@ -340,7 +340,7 @@ J-Space 采用 Anthropic 相关可解释性研究建立的操作性工作空间�
 
 ## 版本轨迹
 
-J-Space 已连续经历：
+Mindseam 已连续经历：
 
 **V1 → V1.5 → V1.8 → V2 → V2.5 → V2.6 → V3 → V3.1 → V3.2 → V3.5 → V3.5Turbo → V3.6**
 
@@ -351,17 +351,17 @@ V3.6 套件包含一个入口、十一个聚焦模块、三份支撑资料、一
 
 研究使用可在论文发布后引用配套论文；工程使用请引用本仓库：
 
-> Tiger3807861189. (2026). *J-Space Cognition Suite V3.6* (Version 3.6). Zenodo.
+> Tiger3807861189. (2026). *Mindseam Cognition Suite V3.6* (Version 3.6). Zenodo.
 > https://doi.org/10.5281/zenodo.21977271
 
 ```bibtex
-@software{j-space-cognition-suite,
+@software{mindseam-cognition-suite,
   author  = {Tiger3807861189},
-  title   = {{J-Space} Cognition Suite V3.6},
+  title   = {{Mindseam} Cognition Suite V3.6},
   year    = {2026},
   version = {3.6},
   doi     = {10.5281/zenodo.21977271},
-  url     = {https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6}
+  url     = {https://github.com/Tiger3807861189/Mindseam-Cognition-Suite-V3.6}
 }
 ```
 
@@ -372,9 +372,9 @@ GitHub 兼容的元数据见 [`CITATION.cff`](CITATION.cff)。
 
 ## 开源协议
 
-J-Space Cognition Suite 采用
+Mindseam Cognition Suite 采用
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) 开源，允许在遵守声明
 保留与专利条款的前提下使用、修改、再分发及商业集成。完整条款见 [`LICENSE`](LICENSE)。
 引用或概述的外部材料仍遵循其来源条款，具体归属与边界见
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
-若只再分发运行时 `j-space/` 目录，应同时附带仓库根目录的这两个文件。
+若只再分发运行时 `mindseam/` 目录，应同时附带仓库根目录的这两个文件。

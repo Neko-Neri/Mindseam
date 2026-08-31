@@ -1,0 +1,456 @@
+{
+  "schema_version": "mimosa-task-review/v2",
+  "run_id": "20260829T070320125Z-13024-671ba424f77e",
+  "run_status": "completed",
+  "errors": [],
+  "coverage": {
+    "schema_version": "mimosa-hook-coverage/v1",
+    "status": "complete",
+    "scope": "hook_observed_diff",
+    "baseline": {
+      "complete": false,
+      "captured_files": 131,
+      "candidate_limit": 5000,
+      "truncated": false,
+      "enumeration_error_count": 0,
+      "snapshot_error_count": 1,
+      "compensated_target_count": 2
+    },
+    "change_tracking": {
+      "touched_observed": 2,
+      "touched_retained": 2,
+      "truncated": false,
+      "bash_mutation": false,
+      "bash_discovered": 0,
+      "bash_discovery_limit": 80,
+      "bash_discovery_truncated": false
+    },
+    "candidates": {
+      "eligible_files": 2,
+      "selected_files": 2,
+      "limit": 20,
+      "truncated": false
+    },
+    "scanning": {
+      "required_files": 2,
+      "scanned_files": 2,
+      "skipped_files": 0,
+      "failed_files": 0,
+      "project_checks_required": 0,
+      "project_checks_completed": 0
+    },
+    "notification": {
+      "eligible_findings": 7,
+      "detailed_findings": 0,
+      "detail_limit": 3,
+      "truncated": true
+    },
+    "reason_counts": {
+      "baseline_partial": 1
+    },
+    "reasons": [
+      {
+        "code": "baseline_partial",
+        "stage": "baseline",
+        "target": ".",
+        "detail": "baseline capture had enumeration or snapshot errors",
+        "affects_completion": false
+      }
+    ],
+    "reasons_truncated": false
+  },
+  "generated_at": "2026-08-29T07:03:20.125Z",
+  "session_id": "sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff",
+  "target": ".",
+  "revision": "bd319d8a86d176ee12adb7bba5c3dae716a768a0",
+  "rules_version": "unavailable",
+  "diff_hash": "372689bef13667cc73eecb9184ec259f408b4ec7c3de7524177cd33acca1de24",
+  "diff": {
+    "algorithm": "sha256",
+    "changed_file_count": 2,
+    "changed_files": [
+      {
+        "file": "j-space/scripts/jspace.py",
+        "ranges": [
+          {
+            "start": 144,
+            "end": 144
+          }
+        ],
+        "before_hash": "786090f095f08df04d1c4025760150916936f4011232c8afba91fbb6529c834c",
+        "after_hash": "4f217813c47056ef5d139c00aa54aaa62faa9fe76d080298d3291090cd3b34d8"
+      },
+      {
+        "file": "jspace_bench.py",
+        "ranges": [
+          {
+            "start": 1,
+            "end": 50
+          }
+        ],
+        "before_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "after_hash": "2ea5921f48188e849a9429a128bf3c134bbefff2277e5fd5ea64ce2596942839"
+      }
+    ]
+  },
+  "timing": {
+    "started_at": "2026-08-29T07:03:18.288Z",
+    "completed_at": "2026-08-29T07:03:20.125Z",
+    "duration_ms": 1837,
+    "measurement": "hook_wall_clock"
+  },
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "total": 0,
+    "model_calls": 0,
+    "measurement": "known-zero"
+  },
+  "telemetry": {
+    "schemaVersion": "mimosa-gate-telemetry/v1",
+    "profile": "gate",
+    "operation": "Stop",
+    "outcome": "complete",
+    "latencyMs": 1837,
+    "peakMemoryBytes": 147947520,
+    "memoryMeasurement": "max-observed-process-rss",
+    "scannedFiles": 2,
+    "cache": {
+      "hits": 0,
+      "misses": 0,
+      "measurement": "not-applicable"
+    },
+    "denyCount": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "modelCalls": 0,
+      "measurement": "known-zero"
+    }
+  },
+  "finding_count": 7,
+  "rewake_finding_count": 0,
+  "evidence_boundary": {
+    "scan": "candidate",
+    "static_fix_verification": "observed_static_only",
+    "runtime_verification": "not_performed"
+  },
+  "finding_events": [
+    {
+      "finding_id": "mimosa-c375112583cb045938419890",
+      "file": "jspace_bench.py",
+      "line": 15,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "d622721358adf39069df0c3ec6c10fc2fbf42cc32a978fd0e1dba1b5cd4c9da4",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-431fffe53c3b20c0dde068fc",
+      "file": "jspace_bench.py",
+      "line": 16,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "f96dcbac4e68e5da01b2b45af877e2c40bb9e26f848e9a0d42b95380aa495553",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-14bc3ec75dd1213d427c83e3",
+      "file": "jspace_bench.py",
+      "line": 17,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "26f268b9229267507109b6a9104414622bf88e763c27338528029a1fea8e7bd3",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-570ff6041836cdcf5d8a1b6a",
+      "file": "jspace_bench.py",
+      "line": 18,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "3b9345c9c5ba87ab1e60bfa099b3954ac6fc123b221b48d833aea627fca81e1b",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-5c5390756671088e3537463a",
+      "file": "jspace_bench.py",
+      "line": 19,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "a6d6e4424f6fa51afd64cd9b226a99eee9ab6c18de79975434f7dc475de5ec48",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-10c97309f7ba46532757d241",
+      "file": "jspace_bench.py",
+      "line": 20,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "518753afc985305400dba688e264804d5054a758195b2fe14884e1ef65f6111c",
+        "runtime_oracle": false
+      }
+    },
+    {
+      "finding_id": "mimosa-fb90d34df45f31a49c527c56",
+      "file": "jspace_bench.py",
+      "line": 21,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "status": "candidate",
+      "decision": "observe",
+      "at": "2026-08-29T07:03:20.125Z",
+      "evidence": {
+        "kind": "static_scan",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "source": "semgrep",
+        "evidence_hash": "0a2c6d61964d5a909790e942a3a1589b5b8b1e1f997997d7771ad9761799502f",
+        "runtime_oracle": false
+      }
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "mimosa-c375112583cb045938419890",
+      "file": "jspace_bench.py",
+      "line": 15,
+      "end_line": 15,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 15,
+          "evidence_hash": "d622721358adf39069df0c3ec6c10fc2fbf42cc32a978fd0e1dba1b5cd4c9da4",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-431fffe53c3b20c0dde068fc",
+      "file": "jspace_bench.py",
+      "line": 16,
+      "end_line": 16,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 16,
+          "evidence_hash": "f96dcbac4e68e5da01b2b45af877e2c40bb9e26f848e9a0d42b95380aa495553",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-14bc3ec75dd1213d427c83e3",
+      "file": "jspace_bench.py",
+      "line": 17,
+      "end_line": 17,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 17,
+          "evidence_hash": "26f268b9229267507109b6a9104414622bf88e763c27338528029a1fea8e7bd3",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-570ff6041836cdcf5d8a1b6a",
+      "file": "jspace_bench.py",
+      "line": 18,
+      "end_line": 18,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 18,
+          "evidence_hash": "3b9345c9c5ba87ab1e60bfa099b3954ac6fc123b221b48d833aea627fca81e1b",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-5c5390756671088e3537463a",
+      "file": "jspace_bench.py",
+      "line": 19,
+      "end_line": 19,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 19,
+          "evidence_hash": "a6d6e4424f6fa51afd64cd9b226a99eee9ab6c18de79975434f7dc475de5ec48",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-10c97309f7ba46532757d241",
+      "file": "jspace_bench.py",
+      "line": 20,
+      "end_line": 20,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 20,
+          "evidence_hash": "518753afc985305400dba688e264804d5054a758195b2fe14884e1ef65f6111c",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    },
+    {
+      "finding_id": "mimosa-fb90d34df45f31a49c527c56",
+      "file": "jspace_bench.py",
+      "line": 21,
+      "end_line": 21,
+      "severity": "low",
+      "category": "不安全的随机数",
+      "kind": "semgrep",
+      "advisory": false,
+      "status": "candidate",
+      "evidence_boundary": "candidate",
+      "evidence": [
+        {
+          "kind": "static_scan",
+          "boundary": "candidate",
+          "producer": "deterministic",
+          "source": "semgrep",
+          "file": "jspace_bench.py",
+          "line": 21,
+          "evidence_hash": "0a2c6d61964d5a909790e942a3a1589b5b8b1e1f997997d7771ad9761799502f",
+          "runtime_oracle": false
+        }
+      ],
+      "already_reported_to_agent": false,
+      "selected_for_rewake": false
+    }
+  ],
+  "artifacts": {
+    "immutable_report": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff-20260829T070320125Z-13024-671ba424f77e.json",
+    "latest_report": ".mimosa/reports/task-review-sess_06f7966d-23e2-4511-92f1-bd017d2ef0ff.json",
+    "history_summary": ".mimosa/history/run-20260829T070320125Z-13024-671ba424f77e.json"
+  }
+}

@@ -6,10 +6,10 @@ line from standard input, recording a row in ``history.json``
 for each. A host that batches several seam calls into one
 process invocation gets a single history rotation, the way
 ``kubectl apply -f -`` reads multiple resources from stdin
-and the way ``xargs jspace seam`` would pipe lines into
+and the way ``xargs mindseam seam`` would pipe lines into
 the command.
 
-The tests import ``jspace`` and call ``main`` directly with a
+The tests import ``mindseam`` and call ``main`` directly with a
 monkey-patched ``sys.stdin`` to avoid the Windows + Python 3.14
 stdin-pipe deadlock that the default ``subprocess.run`` ``input=``
 argument hits when the child reads stdin in buffered text mode.
@@ -29,15 +29,15 @@ from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JSPACE_DIR = ROOT / "j-space" / "scripts"
-if str(JSPACE_DIR) not in sys.path:
-    sys.path.insert(0, str(JSPACE_DIR))
+MINDSEAM_DIR = ROOT / "mindseam" / "scripts"
+if str(MINDSEAM_DIR) not in sys.path:
+    sys.path.insert(0, str(MINDSEAM_DIR))
 
-import jspace as jspace_module  # noqa: E402
+import mindseam as mindseam_module  # noqa: E402
 
 
 def _run(cwd, args, stdin_text):
-    """Run ``jspace.main`` with ``sys.stdin`` monkey-patched.
+    """Run ``mindseam.main`` with ``sys.stdin`` monkey-patched.
 
     The standard ``subprocess.run(input=...)`` path is fragile on
     Windows + Python 3.14: the child reads ``sys.stdin.read()``
@@ -52,7 +52,7 @@ def _run(cwd, args, stdin_text):
     because previous test runs may have left ``sys.stdin``
     pointing at a spent ``StringIO``.
 
-    ``jspace.main`` reads the ledger from ``.jspace/`` relative
+    ``mindseam.main`` reads the ledger from ``.mindseam/`` relative
     to its current working directory, not to the test's
     workspace, so we ``os.chdir`` into the workspace for the
     duration of the call and restore the original cwd
@@ -67,7 +67,7 @@ def _run(cwd, args, stdin_text):
         err = io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             try:
-                rc = jspace_module.main(args)
+                rc = mindseam_module.main(args)
             except SystemExit as exc:
                 rc = exc.code if isinstance(exc.code, int) else (
                     2 if exc.code else 0)
@@ -162,7 +162,7 @@ class SeamFromStdinFlagTests(unittest.TestCase):
         # Two new rows at the tail carry the batch message.
         self.assertIn("BATCH-101", " ".join(payload["warnings"]))
         # And the rows on disk both carry the message.
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         self.assertEqual(data[-2]["next"], "dom: alpha")
         self.assertEqual(data[-2]["msg"], "BATCH-101")
@@ -179,12 +179,12 @@ class SeamFromStdinFlagTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertNotIn("From stdin", stdout)
         # And the row is still on disk.
-        history = Path(self.workspace) / ".jspace" / "history.json"
+        history = Path(self.workspace) / ".mindseam" / "history.json"
         data = json.loads(history.read_text(encoding="utf-8"))
         self.assertEqual(data[-1]["next"], "dom: step")
 
     def test_from_stdin_with_no_input_writes_no_rows(self):
-        # An empty stdin is a no-op, the way ``xargs jspace seam``
+        # An empty stdin is a no-op, the way ``xargs mindseam seam``
         # would pass no arguments. ``--from-stdin`` alone with
         # no input is a legal, empty call.
         rc, stdout, _ = _run(self.workspace,
