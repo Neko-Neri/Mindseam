@@ -12,6 +12,8 @@ Mindseam Cognition Suite 是一套面向深度推理、长程工作、工具调�
 
 Mindseam 在推理阶段运行，模型权重和训练过程保持原有状态。
 
+**致谢** —— 本项目的开发与测试由 [VSLLM](https://vsllm.com) 提供算力支持，感谢 VSLLM 提供的模型 token。
+
 ## 快速开始
 
 ### 方式 A：手动安装

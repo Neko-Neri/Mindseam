@@ -14,6 +14,9 @@ references, and an optional standard-library controller for durable task state.
 
 Mindseam operates at inference time. Model weights and training remain unchanged.
 
+**Acknowledgements** — compute for this project's development and testing was provided by
+[VSLLM](https://vsllm.com); thanks to VSLLM for the model tokens that made this work possible.
+
 ## Quick start
 
 ### Option A — manual installation
