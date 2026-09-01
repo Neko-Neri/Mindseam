@@ -176,8 +176,11 @@ class AuditReportContractTests(AuditBase):
                             "?02 same question — settled by: test a"))
         r = _invoke(["audit"], cwd=self.workspace)
         line = next(l for l in r.stdout.splitlines() if l.startswith("delete"))
-        # <tag> <what to cut>. <replacement>.
-        self.assertRegex(line, r"^delete .+\. .+\.$")
+        # <tag> <what to cut>. <replacement>.  (evidence: ...)
+        # The base ponytail shape is the first three fields; the
+        # evidence summary is an inline addition that r160 brings
+        # in to make the conclusion traceable.
+        self.assertRegex(line, r"^delete .+\. .+\.(  \(evidence: .+\))?$")
 
 
 class AuditIntensityTests(AuditBase):

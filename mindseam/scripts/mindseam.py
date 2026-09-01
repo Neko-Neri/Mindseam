@@ -6251,44 +6251,99 @@ def audit_findings(book, hist):
     open_seen = first_seen("Open", book.get("Open", []))
     verified_seen = first_seen("Verified", book.get("Verified", []))
 
-    def emit(tag, what, replacement):
-        findings.append({"tag": tag, "what": what,
-                         "replacement": replacement})
+    def emit(tag, what, replacement, evidence=None):
+        # Borrowed from `git blame` / `cargo tree -e features` /
+        # ponytail's audit row: a finding is the *conclusion*;
+        # the *evidence* is the smallest pointer that lets a host
+        # reproduce the conclusion without re-running the audit.
+        # For ``delete`` / ``stdlib`` the evidence is the original
+        # row text and the row number; for ``yagni`` it is the
+        # Core length and the live-slot count; for ``shrink`` it
+        # is the count of blank-next rows and the recent row
+        # indices that hold them; for the facet tags the
+        # evidence names the seam indices and the values that
+        # tripped the detector. The field is always a dict so the
+        # JSON face has a stable shape, even when the finding
+        # only needs one key.
+        findings.append({
+            "tag": tag,
+            "what": what,
+            "replacement": replacement,
+            "evidence": evidence or {},
+        })
 
     for index, row in enumerate(book.get("Open", [])):
         key = _audit_norm(row)
         if not key:
             continue
         if open_seen.get(key) != "Open #%d" % (index + 1):
+            dup = open_seen[key]
+            # `dup` is e.g. "Open #3"; extract the index for the
+            # evidence block.
+            dup_index = int(dup.split("#")[-1]) if "#" in dup else None
             emit("delete",
-                 "Open #%d repeats %s" % (index + 1, open_seen[key]),
-                 "one row per question; close the duplicate")
+                 "Open #%d repeats %s" % (index + 1, dup),
+                 "one row per question; close the duplicate",
+                 {
+                     "row": index + 1,
+                     "row_text": _audit_norm(row) or "(empty)",
+                     "first_seen": dup,
+                     "first_seen_index": dup_index,
+                 })
         elif key in verified_seen:
+            ans = verified_seen[key]
+            ans_index = int(ans.split("#")[-1]) if "#" in ans else None
             emit("delete",
                  "Open #%d is already answered by %s"
-                 % (index + 1, verified_seen[key]),
-                 "the question is settled; it can leave Open")
+                 % (index + 1, ans),
+                 "the question is settled; it can leave Open",
+                 {
+                     "row": index + 1,
+                     "row_text": _audit_norm(row) or "(empty)",
+                     "answered_by": ans,
+                     "answered_by_index": ans_index,
+                 })
 
     for index, row in enumerate(book.get("Verified", [])):
         key = _audit_norm(row)
         if key and verified_seen.get(key) != "Verified #%d" % (index + 1):
+            canonical = verified_seen[key]
+            canonical_index = int(canonical.split("#")[-1]) if "#" in canonical else None
             emit("stdlib",
-                 "Verified #%d repeats %s" % (index + 1, verified_seen[key]),
-                 "keep one canonical checkpoint")
+                 "Verified #%d repeats %s" % (index + 1, canonical),
+                 "keep one canonical checkpoint",
+                 {
+                     "row": index + 1,
+                     "row_text": _audit_norm(row) or "(empty)",
+                     "canonical": canonical,
+                     "canonical_index": canonical_index,
+                 })
 
     parked = len(book.get("Core", [])) - 2
     if parked > 0:
         emit("yagni",
              "Core carries %d parked item%s beyond the two live slots"
              % (parked, "" if parked == 1 else "s"),
-             "verify or demote them; the surface reads two at a time")
+             "verify or demote them; the surface reads two at a time",
+             {
+                 "core_total": len(book.get("Core", [])),
+                 "live_slots": 2,
+                 "parked": parked,
+                 "parked_indices": list(range(3, len(book.get("Core", [])) + 1)),
+             })
 
-    blank_next = sum(1 for h in hist if not (h.get("next") or "").strip())
-    if blank_next:
+    blank_rows = [i for i, h in enumerate(hist, 1)
+                  if not (h.get("next") or "").strip()]
+    if blank_rows:
         emit("shrink",
              "%d history row%s carry a blank next action"
-             % (blank_next, "" if blank_next == 1 else "s"),
-             "rotate them out with `history --keep`")
+             % (len(blank_rows), "" if len(blank_rows) == 1 else "s"),
+             "rotate them out with `history --keep`",
+             {
+                 "blank_count": len(blank_rows),
+                 "blank_indices": blank_rows,
+                 "history_total": len(hist),
+             })
 
     # Borrowed from `gh audit-log` / `journalctl --list-boots` /
     # ponytail's "drift" check: a Goal field that has not been
@@ -6304,14 +6359,24 @@ def audit_findings(book, hist):
     goal_text = (book.get("Goal") or [""])[0].strip() if book.get("Goal") else ""
     if goal_text and len(hist) >= 10:
         recent = hist[-10:]
-        stale = [h for h in recent
-                 if not (h.get("goal") or "").strip()
-                 and (h.get("next") or "").strip()]
-        if len(stale) == len(recent):
+        # The 1-based row indices of the recent seams, used to
+        # let a host ``history --row-id`` straight to the evidence.
+        recent_rows = list(range(len(hist) - len(recent) + 1, len(hist) + 1))
+        stale_local = [i for i, h in enumerate(recent)
+                       if not (h.get("goal") or "").strip()
+                       and (h.get("next") or "").strip()]
+        if len(stale_local) == len(recent):
             emit("goal-stale",
                  "Goal has not been re-anchored in the last %d seams"
-                 % len(stale),
-                 "re-run `note --goal ...` to confirm the commitment, or `note --next` to record a new one")
+                 % len(stale_local),
+                 "re-run `note --goal ...` to confirm the commitment, or `note --next` to record a new one",
+                 {
+                     "goal": goal_text,
+                     "window": len(recent),
+                     "stale_indices": [recent_rows[i] for i in stale_local],
+                     "window_first": recent_rows[0],
+                     "window_last": recent_rows[-1],
+                 })
 
     # Borrowed from ponytail's "drift" pattern and
     # `tshark -qz io,phs` (long-tail detection): the same `next`
@@ -6325,18 +6390,27 @@ def audit_findings(book, hist):
     # or `note --next` (when the topic should change).
     if len(hist) >= 5:
         recent = hist[-5:]
+        recent_rows = list(range(len(hist) - len(recent) + 1, len(hist) + 1))
         counts = {}
-        for h in recent:
+        for offset, h in enumerate(recent):
             nxt = (h.get("next") or "").strip()
             if nxt:
-                counts[nxt] = counts.get(nxt, 0) + 1
-        repeats = [(n, c) for n, c in counts.items() if c >= 3]
-        repeats.sort(key=lambda nc: (-nc[1], nc[0]))
-        for nxt, c in repeats:
+                counts.setdefault(nxt, []).append(recent_rows[offset])
+        repeats = [(n, idxs) for n, idxs in counts.items() if len(idxs) >= 3]
+        repeats.sort(key=lambda ni: (-len(ni[1]), ni[0]))
+        for nxt, idxs in repeats:
             emit("next-stall",
                  "`%s` appears in %d of the last %d seams without resolution"
-                 % (nxt, c, len(recent)),
-                 "either close the topic with `note --close N` or change it with `note --next`")
+                 % (nxt, len(idxs), len(recent)),
+                 "either close the topic with `note --close N` or change it with `note --next`",
+                 {
+                     "next": nxt,
+                     "seam_indices": idxs,
+                     "count": len(idxs),
+                     "window": len(recent),
+                     "window_first": recent_rows[0],
+                     "window_last": recent_rows[-1],
+                 })
 
     # Borrowed from `git log --check` / `cargo check` (live vs.
     # declared consistency): if the most recent `next` action
@@ -6366,16 +6440,85 @@ def audit_findings(book, hist):
             emit("core-drift",
                  "Next is `%s` but it is not in the Core"
                  % live_next,
-                 "either move it to Core with `note --core` or change Next with `note --next`")
+                 "either move it to Core with `note --core` or change Next with `note --next`",
+                 {
+                     "live_next": live_next,
+                     "core_items": list(core_items),
+                     "direction": "next-not-in-core",
+                 })
         if not live_next:
             emit("core-drift",
                  "Next is empty while Core still lists %d item%s"
                  % (len(core_items), "" if len(core_items) == 1 else "s"),
-                 "re-anchor Next with `note --next ...` or retire the Core commitment")
+                 "re-anchor Next with `note --next ...` or retire the Core commitment",
+                 {
+                     "live_next": "",
+                     "core_items": list(core_items),
+                     "core_count": len(core_items),
+                     "direction": "core-without-next",
+                 })
 
     order = {tag: rank for rank, tag in enumerate(AUDIT_TAGS)}
     findings.sort(key=lambda f: (order[f["tag"]], f["what"]))
     return findings
+
+
+def _evidence_summary(finding):
+    """Render a one-line summary of a finding's evidence block.
+
+    Borrowed from `git log --oneline` (single-line summary) and
+    `cargo tree -e features` (compact feature path): the summary
+    must fit on the same line as the finding so a host tailing
+    the audit does not lose the link to the next line. Each
+    summary lists only the keys that drove the verdict, in
+    stable order, separated by ``; ``. Missing keys are
+    silently skipped — a finding that does not need the field
+    just renders without it.
+    """
+    evidence = finding.get("evidence") or {}
+    tag = finding.get("tag")
+    if not tag or not evidence:
+        return ""
+    parts = []
+    if tag == "delete":
+        if "row" in evidence and "first_seen" in evidence:
+            parts.append("row #%d ↔ %s" % (evidence["row"], evidence["first_seen"]))
+        if "row" in evidence and "answered_by" in evidence:
+            parts.append("row #%d ↔ %s" % (evidence["row"], evidence["answered_by"]))
+    elif tag == "stdlib":
+        if "row" in evidence and "canonical" in evidence:
+            parts.append("row #%d ↔ %s" % (evidence["row"], evidence["canonical"]))
+    elif tag == "yagni":
+        if "core_total" in evidence and "parked" in evidence:
+            parts.append("%d/%d parked" % (evidence["parked"], evidence["core_total"]))
+    elif tag == "shrink":
+        if "blank_count" in evidence and "blank_indices" in evidence:
+            idxs = evidence["blank_indices"]
+            sample = ",".join(str(i) for i in idxs[:3])
+            if len(idxs) > 3:
+                sample += ",…"
+            parts.append("%d blank rows [%s]" % (evidence["blank_count"], sample))
+    elif tag == "goal-stale":
+        if "window" in evidence and "stale_indices" in evidence:
+            stale = evidence["stale_indices"]
+            if stale:
+                parts.append("seams %d…%d all stale" % (stale[0], stale[-1]))
+            else:
+                parts.append("0 stale")
+    elif tag == "next-stall":
+        if "seam_indices" in evidence and "count" in evidence:
+            parts.append("seams %s (%d)"
+                         % (",".join(str(i) for i in evidence["seam_indices"]),
+                            evidence["count"]))
+    elif tag == "core-drift":
+        if evidence.get("direction") == "next-not-in-core":
+            parts.append("next=%r not in core[%d]"
+                         % (evidence.get("live_next"),
+                            len(evidence.get("core_items", []))))
+        elif evidence.get("direction") == "core-without-next":
+            parts.append("core has %d, next empty"
+                         % evidence.get("core_count", 0))
+    return "; ".join(parts)
 
 
 def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
@@ -6451,7 +6594,19 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
         return 0
     shown = findings[:3] if level == "lite" else findings
     for f in shown:
-        print("%s %s. %s." % (f["tag"], f["what"], f["replacement"]))
+        # Borrowed from `git blame --line-porcelain` /
+        # `cargo tree -e features`: a finding carries both the
+        # verdict (tag + what + replacement) and the smallest
+        # pointer that lets a host reproduce the verdict without
+        # re-running the audit. The text face inlines the pointer
+        # at the end of the line, the way ``git log --stat``
+        # inlines the diff stat; the JSON face already carries
+        # the full ``evidence`` block.
+        line = "%s %s. %s." % (f["tag"], f["what"], f["replacement"])
+        evidence_summary = _evidence_summary(f)
+        if evidence_summary:
+            line += "  (evidence: %s)" % evidence_summary
+        print(line)
     if len(shown) < len(findings):
         print("+%d more finding%s — rerun with --intensity full to see them."
               % (len(findings) - len(shown),

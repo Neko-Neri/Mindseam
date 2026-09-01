@@ -772,3 +772,78 @@ signal, not a re-statement of an existing one. Suite after r159:
   reverse-direction test flagged as undocumented. The fix
   was to drop the leading dashes from the borrowed reference
   (paraphrase the metaphor, do not name the borrower's flag).
+
+## r160 — audit evidence link
+
+r156 made the audit output *what to cut*. r159 added *when the
+facet tags fire*. r160 makes every finding *traceable* — the
+conclusion now points back to the smallest piece of evidence a
+host needs to reproduce the verdict without re-running the
+audit, the way `git blame` traces a line to a commit and
+`cargo tree -e features` traces a build to a feature flag.
+
+Each tag has its own evidence shape, because the conclusion of
+each tag needs a different kind of pointer:
+
+- `delete`     — `row`, `row_text`, `first_seen` + `first_seen_index` (or `answered_by` + `answered_by_index` for the "settled" branch)
+- `stdlib`     — `row`, `row_text`, `canonical` + `canonical_index`
+- `yagni`      — `core_total`, `live_slots`, `parked` count + `parked_indices`
+- `shrink`     — `blank_count`, `blank_indices`, `history_total`
+- `goal-stale` — `goal`, `window`, `stale_indices` (1-based seam indices, with `window_first` / `window_last` to bracket the window)
+- `next-stall` — `next`, `seam_indices`, `count`, `window` (and brackets)
+- `core-drift` — `live_next`, `core_items`, `direction` (one of `next-not-in-core` / `core-without-next`)
+
+The text face inlines a one-line summary at the end of the
+finding, the way `git log --stat` inlines the diff stat — the
+line stays single-host-readable, but a host tailing the audit
+can `grep evidence:` to find the audit's pointers. The JSON
+face carries the full evidence block on every finding; the
+`--tag` projection keeps the evidence on the projected
+findings (the dial trims prose, not data).
+
+A small new helper, `_evidence_summary(finding)`, renders the
+text-face summary per tag. The branch for `shrink` truncates
+long index lists with an ellipsis so a 50-row blank run does
+not blow the line budget. The branches for `core-drift` name
+both directions, so a host can grep `next=` or `next empty`
+to tell which side of the drift the session is on.
+
+The finding dict shape changed: it now has a fourth key,
+`evidence`, which is always a dict (possibly empty). This is
+backward compatible — the r156 / r159 tests that pinned
+`[f["tag"] for f in findings]` still pass, because adding a
+key to a dict does not break a projection. The text-face
+finding line added a `(evidence: ...)` suffix, so the r156
+shape test was widened to allow an optional evidence suffix.
+
+### Tests
+test_r160_audit_evidence.py — 24 tests: each of the seven tags
+gets a `tag_evidence_*` test pinning the field shape (row
+indices, normalised text, counts, seam indices, direction
+enum), each of the seven tags also gets a
+`test_*_summary_in_text_face` test pinning the inline summary,
+plus JSON-face tests for "every finding has evidence dict",
+"--tag filter keeps evidence", "--strict under filter still
+carries evidence", and a helper-level test for the
+`_evidence_summary` shape (clean, yagni, shrink truncation,
+core-drift two directions). Suite after r160: 1277 passed,
+0 failed. verify_suite 9/9.
+
+### Gotchas
+- The delete "answered_by" branch needs the Open and Verified
+  text to match after `_audit_norm` (which strips `?NN` /
+  `✓NN` prefixes and casefolds). The first test fixture had
+  the two rows differing in the word "verified" vs "settled",
+  which makes the audit see no match and the branch does not
+  fire. The fix is to use the *same* suffix in both rows —
+  the audit operates on the body, not the metadata.
+- The r69 doc-drift guard extracts every ` --flag` token from
+  any line containing `mindseam.py `. The line for the new
+  `audit --tag` reference in SKILL.md now mentions
+  "evidence rides through the projection" — that line has no
+  ` --label` style pattern, but earlier borrows of `gh pr list
+  --label` had to be paraphrased to avoid the false positive
+  on the literal ` --label` token. The audit's own output
+  emits `(evidence: row #N ↔ Open #M)` in the text face; the
+  r69 reverse-direction test does not flag ` ↔ ` because that
+  is not a ` --flag` pattern.

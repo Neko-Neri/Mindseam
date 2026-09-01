@@ -133,10 +133,10 @@ the task workspace as the current directory.
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |
 | `audit` | Report tagged ledger waste, biggest cut first (report only, borrowed from ponytail) |
-| `audit --json` | Same, machine-readable JSON |
+| `audit --json` | Same, machine-readable JSON; every finding carries an `evidence` block (row indices, normalised text, counts) so the verdict is traceable |
 | `audit --strict` | Exit non-zero when a finding is reported (CI gate) |
 | `audit --intensity lite` | Cap the printed findings at 3 (`full` default, `off` refuses; `MINDSEAM_INTENSITY` sets the default) |
-| `audit --tag core-drift,next-stall` | Only the listed tags; unknown tags refuse with exit 2 (like `gh pr list --label`). Tag set: `delete`, `stdlib`, `yagni`, `shrink`, `goal-stale`, `next-stall`, `core-drift` |
+| `audit --tag core-drift,next-stall` | Only the listed tags; unknown tags refuse with exit 2 (like `gh pr list --label`). Tag set: `delete`, `stdlib`, `yagni`, `shrink`, `goal-stale`, `next-stall`, `core-drift`. Evidence rides through the projection |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "what done means" --next "first action"
