@@ -132,6 +132,10 @@ the task workspace as the current directory.
 | `info --json` | Same, machine-readable JSON |
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |
+| `audit` | Report tagged ledger waste, biggest cut first (report only, borrowed from ponytail) |
+| `audit --json` | Same, machine-readable JSON |
+| `audit --strict` | Exit non-zero when a finding is reported (CI gate) |
+| `audit --intensity lite` | Cap the printed findings at 3 (`full` default, `off` refuses; `MINDSEAM_INTENSITY` sets the default) |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "what done means" --next "first action"

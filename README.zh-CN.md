@@ -129,6 +129,10 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `history --json` | 机器可读审计日志尾 |
 | `discover` | 列出下次迭代推荐的模块 / 领域 |
 | `discover --json` | 同上，机器可读 JSON |
+| `audit` | 按标签逐行报告账本冗余，最大可削减项优先（只读报告，借鉴自 ponytail） |
+| `audit --json` | 同上，机器可读 JSON |
+| `audit --strict` | 有发现时以非零码退出（CI 门禁） |
+| `audit --intensity lite` | 打印的发现最多三条（默认 `full`，`off` 拒绝执行；`MINDSEAM_INTENSITY` 可设默认档位） |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "完成条件" --next "第一个动作"

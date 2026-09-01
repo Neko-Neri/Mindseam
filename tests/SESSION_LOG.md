@@ -581,3 +581,48 @@ to respond to or a check to grow).
 - `pytest tests/test_new_subcommands.py -q`: 10 passed
 - pytest across all tests: **1034 passed, 0 failed, 1 warning**
 - verify_suite.py: **9/9**
+
+---
+
+## Round 156 — ponytail borrow: read-only `audit` + the intensity ladder (2026-09-01)
+
+### Pre-round recovery (recorded honestly)
+The tree arrived with the suite at 772 errors + 75 failures: the committed
+controller was the r32 CLI snapshot while 100+ round tests expected a
+detector layer that lived only in the skill-directory copy, and the
+skillbook/discover subcommands that test_new_subcommands.py specified had
+never been implemented in any copy. The controller was rebuilt by grafting
+the repo CLI skeleton onto the detector base, writing skillbook/discover
+against their test contract, restoring the ledger-aware resume report,
+upgrading REMEDIATION_MAP to (key, advice, priority) triples, and
+replacing the last j-space brand strings. Suite at commit 6b22d4b:
+1168 passed, 0 failed.
+
+### What r156 borrowed from https://github.com/DietrichGebert/ponytail (MIT)
+1. `audit` subcommand — ponytail's `/ponytail-audit` shape applied to the
+   ledger instead of code: scan the whole artefact, one line per finding
+   (`<tag> <what to cut>. <replacement>.`), ranked biggest first, ending
+   with the net count; a clean ledger answers with ponytail's own words,
+   "Lean already. Ship." Tags adapted to the ledger: delete (duplicate or
+   already-answered Open rows), stdlib (recorded-twice Verified rows),
+   yagni (Core parked beyond the two live slots), shrink (blank-next
+   history rows). Report only — audit writes nothing and exits 0 with
+   findings; `--strict` turns findings into exit 1 for CI.
+2. Intensity ladder — `audit --intensity lite|full|off`, resolved as
+   flag > MINDSEAM_INTENSITY > full (ponytail's PONYTAIL_DEFAULT_MODE
+   order, minus the config file a two-command surface has not earned).
+   lite caps the printed report at three findings and says how many were
+   held back; off refuses to run; the JSON face always carries the full
+   list — the dial trims prose, not data.
+
+### Tests
+test_r156_ponytail_audit_and_intensity.py — 23 tests: intensity
+resolution order, every tag firing on a crafted ledger, tag severity
+order, report-only exit contract, strict gate, lite cap + held-back
+line, off refusal, env-var default, flag-beats-env, JSON face, and the
+write-nothing guarantee. Suite after r156: 1191 passed, 0 failed.
+
+### Doc fallout
+SKILL.md, README.md and README.zh-CN.md gained the audit command block;
+r102's parser-set pin now includes audit; r69's flag-documentation pins
+cover --intensity.

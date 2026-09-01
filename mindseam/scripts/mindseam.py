@@ -6039,6 +6039,177 @@ def mode_discover(json_flag=False):
     return 0
 
 
+# Borrowed from DietrichGebert/ponytail (MIT): the read-only audit that
+# emits tagged one-line findings ranked biggest first and closes with
+# "Lean already. Ship." when there is nothing to cut. Ponytail audits
+# code for over-engineering; the seam audit applies the same shape to
+# the ledger — the artefact this controller actually keeps. Report
+# only: audit never writes, and findings never gate unless --strict.
+AUDIT_TAGS = ("delete", "stdlib", "yagni", "shrink")
+
+INTENSITY_LEVELS = ("off", "lite", "full")
+INTENSITY_ENV = "MINDSEAM_INTENSITY"
+
+
+def resolve_intensity(explicit=None):
+    """Resolve the verbosity ladder: flag > MINDSEAM_INTENSITY > full.
+
+    Borrowed from ponytail's mode resolution (``PONYTAIL_DEFAULT_MODE``,
+    then config, then ``full``) minus the config file — a controller
+    with two env-read commands does not earn one. An unset or blank
+    variable reads as the default; validation of the resolved value is
+    the caller's job, because the refusal message names the flag that
+    reached it.
+    """
+    if explicit is not None and explicit.strip():
+        return explicit.strip().lower()
+    env = os.environ.get(INTENSITY_ENV, "")
+    if env.strip():
+        return env.strip().lower()
+    return "full"
+
+
+_AUDIT_NUMBERED = re.compile(r"^[?✓]\d+\s+")
+
+
+def _audit_norm(text):
+    """Collapse a ledger row to its comparable form for duplicate checks.
+
+    The controller prefixes Open rows with ``?NN`` and Verified rows
+    with ``✓NN``; those ids are allocation artifacts, so the
+    duplicate check strips them before comparing the content the
+    reader actually sees.
+    """
+    return _AUDIT_NUMBERED.sub(
+        "", " ".join((text or "").split())).casefold()
+
+
+def audit_findings(book, hist):
+    """Tagged findings over the ledger, ranked biggest cut first.
+
+    Tags, adapted from ponytail's five code tags to the ledger:
+
+    - ``delete`` — an Open entry duplicating another Open entry or an
+      already-Verified line (settled work still posing as a question).
+    - ``stdlib`` — a Verified entry recorded twice; one canonical
+      checkpoint would do, the way one stdlib call replaces a
+      hand-rolled copy.
+    - ``yagni`` — Core entries parked beyond the two live slots the
+      ledger surface actually reads.
+    - ``shrink`` — history rows whose next action is blank; they are
+      noise in the audit log and rotate out with ``history --keep``.
+
+    Within a tag, findings keep ledger order (Core, Verified, Open),
+    and the tag order above is the severity order.
+    """
+    findings = []
+
+    def first_seen(section, entries):
+        seen = {}
+        for index, row in enumerate(entries):
+            key = _audit_norm(row)
+            if key:
+                seen.setdefault(key, "%s #%d" % (section, index + 1))
+        return seen
+
+    open_seen = first_seen("Open", book.get("Open", []))
+    verified_seen = first_seen("Verified", book.get("Verified", []))
+
+    def emit(tag, what, replacement):
+        findings.append({"tag": tag, "what": what,
+                         "replacement": replacement})
+
+    for index, row in enumerate(book.get("Open", [])):
+        key = _audit_norm(row)
+        if not key:
+            continue
+        if open_seen.get(key) != "Open #%d" % (index + 1):
+            emit("delete",
+                 "Open #%d repeats %s" % (index + 1, open_seen[key]),
+                 "one row per question; close the duplicate")
+        elif key in verified_seen:
+            emit("delete",
+                 "Open #%d is already answered by %s"
+                 % (index + 1, verified_seen[key]),
+                 "the question is settled; it can leave Open")
+
+    for index, row in enumerate(book.get("Verified", [])):
+        key = _audit_norm(row)
+        if key and verified_seen.get(key) != "Verified #%d" % (index + 1):
+            emit("stdlib",
+                 "Verified #%d repeats %s" % (index + 1, verified_seen[key]),
+                 "keep one canonical checkpoint")
+
+    parked = len(book.get("Core", [])) - 2
+    if parked > 0:
+        emit("yagni",
+             "Core carries %d parked item%s beyond the two live slots"
+             % (parked, "" if parked == 1 else "s"),
+             "verify or demote them; the surface reads two at a time")
+
+    blank_next = sum(1 for h in hist if not (h.get("next") or "").strip())
+    if blank_next:
+        emit("shrink",
+             "%d history row%s carry a blank next action"
+             % (blank_next, "" if blank_next == 1 else "s"),
+             "rotate them out with `history --keep`")
+
+    order = {tag: rank for rank, tag in enumerate(AUDIT_TAGS)}
+    findings.sort(key=lambda f: (order[f["tag"]], f["what"]))
+    return findings
+
+
+def mode_audit(book, json_flag=False, strict=False, intensity=None):
+    """Audit the ledger for waste, one tagged line per finding.
+
+    Borrowed from ponytail's ``/ponytail-audit`` contract: scan the
+    whole artefact, not a diff; one line per finding in the form
+    ``<tag> <what to cut>. <replacement>.`` ranked biggest first; end
+    with the net count. If there is nothing to cut, say so in ponytail's
+    own words. Report only — audit writes nothing and exits 0 whether
+    or not findings exist; ``--strict`` turns findings into a non-zero
+    exit for CI pipelines that want the gate.
+
+    ``--intensity`` borrows ponytail's ladder (``PONYTAIL_DEFAULT_MODE``
+    pattern): the flag wins over the ``MINDSEAM_INTENSITY`` environment
+    variable, the environment wins over the ``full`` default. ``lite``
+    caps the printed report at the three most severe findings and says
+    how many were held back; ``full`` prints everything; ``off`` is the
+    ponytail-off refusal — audit does not run. The JSON face always
+    carries the complete finding list, the way a host that asked for
+    JSON asked for the data, not the dial.
+    """
+    level = resolve_intensity(intensity)
+    if level == "off":
+        print("CANNOT: audit intensity is off.")
+        print("  set --intensity lite|full (or MINDSEAM_INTENSITY) to run the audit")
+        return 2
+    hist, _, _ = read_history()
+    findings = audit_findings(book, hist)
+    if json_flag:
+        payload = {
+            "lean": not findings,
+            "net": len(findings),
+            "intensity": level,
+            "findings": findings,
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0 if not strict else (0 if not findings else 1)
+    if not findings:
+        print("Lean already. Ship.")
+        return 0
+    shown = findings[:3] if level == "lite" else findings
+    for f in shown:
+        print("%s %s. %s." % (f["tag"], f["what"], f["replacement"]))
+    if len(shown) < len(findings):
+        print("+%d more finding%s — rerun with --intensity full to see them."
+              % (len(findings) - len(shown),
+                 "" if len(findings) - len(shown) == 1 else "s"))
+    print("Net: %d item%s removable."
+          % (len(findings), "" if len(findings) == 1 else "s"))
+    return 0 if not strict else (0 if not findings else 1)
+
+
 
 # --------------------------------------------------------------------------- main
 
@@ -6159,6 +6330,13 @@ def main(argv=None):
     dv = sub.add_parser("discover", help="rank the visited next-action domains")
     dv.add_argument("--json", action="store_true",
                     help="emit machine-readable output for the discoverability layer")
+    au = sub.add_parser("audit", help="report ledger waste, one tagged line per finding (report only)")
+    au.add_argument("--json", action="store_true",
+                    help="emit machine-readable output for the discoverability layer")
+    au.add_argument("--strict", action="store_true",
+                    help="exit non-zero when a finding is reported (CI gate)")
+    au.add_argument("--intensity", dest="intensity", default=None,
+                    help="finding verbosity ladder: lite caps the report at 3 findings, full prints all (default), off refuses to run. Flag beats the MINDSEAM_INTENSITY environment variable (like PONYTAIL_DEFAULT_MODE)")
 
     args = p.parse_args(argv)
 
@@ -6192,6 +6370,12 @@ def main(argv=None):
     if args.cmd == "discover":
         return mode_discover(
             json_flag=getattr(args, "json", False))
+    if args.cmd == "audit":
+        return mode_audit(
+            book,
+            json_flag=getattr(args, "json", False),
+            strict=getattr(args, "strict", False),
+            intensity=getattr(args, "intensity", None))
     if args.cmd == "seam":
         return mode_seam(
             book,
