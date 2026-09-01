@@ -263,6 +263,8 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py history --domains                     # group by the next-action domain prefix (like JIT-Agent's diversity analysis)
 <python-command> <skill-root>/scripts/mindseam.py history --span                        # first seam, last seam and duration (like git log stat)
 <python-command> <skill-root>/scripts/mindseam.py history --grep review                       # entries whose next action contains 'review' (like git log --grep)
+<python-command> <skill-root>/scripts/mindseam.py history --filter marker=OPEN             # exact field match; repeatable, ANDed (like docker ps --filter)
+<python-command> <skill-root>/scripts/mindseam.py history --human                          # relative row ages, the way git log prints relative dates
 <python-command> <skill-root>/scripts/mindseam.py history --exclude review                    # drop rows whose next or msg contains 'review' (like git log's invert-grep)
 <python-command> <skill-root>/scripts/mindseam.py history --until 3600                    # drop rows newer than 1 hour (like git log --until, the upper bound on --since)
 <python-command> <skill-root>/scripts/mindseam.py history --keep 500                      # discard older rows and persist the slimmed file (like logrotate --keep, docker system prune)

@@ -170,6 +170,8 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/mindseam.py history --span
 <python-command> <skill-root>/scripts/mindseam.py history -n 5
 <python-command> <skill-root>/scripts/mindseam.py history --grep review
+<python-command> <skill-root>/scripts/mindseam.py history --filter marker=OPEN
+<python-command> <skill-root>/scripts/mindseam.py history --human
 <python-command> <skill-root>/scripts/mindseam.py history --exclude review
 <python-command> <skill-root>/scripts/mindseam.py history --until 3600
 <python-command> <skill-root>/scripts/mindseam.py history --keep 500

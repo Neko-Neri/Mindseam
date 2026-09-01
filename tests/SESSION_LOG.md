@@ -626,3 +626,41 @@ write-nothing guarantee. Suite after r156: 1191 passed, 0 failed.
 SKILL.md, README.md and README.zh-CN.md gained the audit command block;
 r102's parser-set pin now includes audit; r69's flag-documentation pins
 cover --intensity.
+
+---
+
+## Round 157 — docker-style `history --filter` + git-style `history --human` (2026-09-02)
+
+### What was borrowed
+1. `history --filter KEY=VALUE` — the ``docker ps --filter`` /
+   ``kubectl get --field-selector`` family. One pair per flag,
+   repeatable, all pairs ANDed; matching is exact against the row
+   field's string form (``--grep`` remains the substring tool).
+   Unknown keys and malformed pairs are declined with exit 2 and a
+   fix line naming the valid fields — silence would hand back a
+   result set the caller believes covers more than it does. The flag
+   composes with every older filter (``--grep``, ``--since``,
+   ``--head/--tail``) and every renderer (``--count``, ``--quiet``,
+   ``--json``, ``--csv``). Valid keys are pinned by
+   ``HISTORY_ROW_FIELDS``, the schema the append path writes.
+2. `history --human` — ``git log``'s relative dates / ``ls -lh``.
+   The text table and the ``--row-id`` row render each row's age as a
+   span ("3 minutes ago"); JSON, CSV and ``--format`` keep the raw
+   epoch, the way ``info --human`` keeps raw seconds in its payload.
+   Future timestamps render as "in the future", not "future ago".
+
+### Gotchas hit during integration
+- Meta state keys (marker) persist across seams by design: after a
+  shaky-tagged row, the following rows still carry marker=OPEN. AND
+  filters must be tested with a second differing key (confidence).
+- The seam that carries --message records the row's Next as it stood
+  at note time, not the next seam's — fixture timing off by one seam
+  produced a phantom row.
+
+### Tests
+test_r157_history_filter_and_human.py — 20 tests: exact matching,
+AND composition, empty-value matching, string-form numeric compare,
+declines (unknown key / malformed pair / nothing written on decline),
+grep+filter composition, JSON face, relative spans, raw-epoch
+guarantees across the three machine faces, future timestamps, and the
+helper's contract. Suite after r157: 1211 passed, 0 failed.

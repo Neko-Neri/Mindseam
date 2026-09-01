@@ -55,6 +55,13 @@ METACOGNITION_KEYS = {
 METACOGNITION_EVENT_KEYS = ("error", "outcome", "extra_steps")
 HISTORY_MAX = 500
 HISTORY_ARCHIVE = os.path.join(LEDGER_DIR, "history.archive.json")
+# The row schema ``--filter`` accepts, in the order the append path
+# writes them. ``msg`` is optional, the rest are always present.
+HISTORY_ROW_FIELDS = (
+    "t", "next", "verified", "open", "msg",
+    "marker", "confidence", "verifier", "risk",
+    "error", "outcome", "extra_steps",
+)
 HEAL_REPORT_MAX = 5    # heal lines printed at a seam before the rest are summarised
 HEAL_HEALTH_FLOOR = 45      # health scores below this earn a heal line
 HEAL_SEVERITY_CEILING = 100 - HEAL_HEALTH_FLOOR   # severity scores above this do
@@ -5151,6 +5158,26 @@ def configure_streams():
                 pass
 
 
+def _history_when(ts, human=False, now=None):
+    """Render a row timestamp for the text table.
+
+    The default face is the absolute local time the other audit tools
+    print. ``--human`` borrows ``git log``'s relative dates /
+    ``ls -lh``: the span since the row landed, for a reader who wants
+    "how stale is this" without doing clock arithmetic. JSON, CSV,
+    ``--fields`` and ``--format`` keep the raw epoch either way, the
+    way ``info --human`` keeps raw seconds in its JSON payload.
+    """
+    if not ts:
+        return "(no timestamp)"
+    if human:
+        age = int((now if now is not None else time.time()) - int(ts))
+        if age < 0:
+            return "in the future"
+        return _humanize_seconds(age) + " ago"
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+
+
 def mode_history(args):
     """Print the recent seam history.
 
@@ -5204,6 +5231,41 @@ def mode_history(args):
                   + problem, file=sys.stderr)
         hist = truncated
     hist = read_history()[0]
+    # Borrowed from ``docker ps --filter name=value`` /
+    # ``kubectl get --field-selector status=Running``: keep only the
+    # rows whose field equals the given value, one ``key=value`` pair
+    # per ``--filter`` flag, all pairs ANDed the way docker ANDs its
+    # filters. The value compares against the row's string form with
+    # both sides stripped, so ``--filter marker=OPEN`` and
+    # ``--filter confidence=shaky`` read the way a host expects.
+    # An unknown key or a malformed pair is declined, the way docker
+    # refuses a filter it cannot parse — silence would hand back a
+    # result set the caller believes covers more than it does.
+    # Every render flag downstream honours the narrowed set, so
+    # ``--filter confidence=shaky --count`` and
+    # ``--filter marker=OPEN --json`` compose like any other filter.
+    raw_filters = getattr(args, "filter", None) or []
+    field_filters = []
+    for pair in raw_filters:
+        if "=" not in pair:
+            print("CANNOT: --filter expects key=value, got %r" % pair,
+                  file=sys.stderr)
+            print("  e.g. --filter marker=OPEN", file=sys.stderr)
+            return 2
+        key, _, value = pair.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if not key or key not in HISTORY_ROW_FIELDS:
+            print("CANNOT: --filter key %r is not a history field." % key,
+                  file=sys.stderr)
+            print("  fields: %s" % ", ".join(HISTORY_ROW_FIELDS),
+                  file=sys.stderr)
+            return 2
+        field_filters.append((key, value))
+    for key, value in field_filters:
+        hist = [row for row in hist
+                if str(row.get(key, "") if row.get(key) is not None else "").strip()
+                == value]
     # Borrowed from ``head -n N`` / ``tail -n N``: ``--head N`` keeps
     # the first N rows, ``--tail N`` keeps the last N. ``-n N`` /
     # ``--limit N`` aliases ``--tail`` so the older ``-n`` flag
@@ -5309,8 +5371,7 @@ def mode_history(args):
             return 0
         print("── mindseam ─ history (row %d of %d)" % (n, len(hist)))
         ts = row.get("t")
-        when = (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
-                 if ts else "(no timestamp)")
+        when = _history_when(ts, human=bool(getattr(args, "human", False)))
         nxt = row.get("next") or "(empty)"
         verified = row.get("verified", 0)
         opens = row.get("open", 0)
@@ -5663,8 +5724,7 @@ def mode_history(args):
             return 0
         print("── mindseam ─ history (row %d of %d)" % (n, len(hist)))
         ts = row.get("t")
-        when = (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
-                 if ts else "(no timestamp)")
+        when = _history_when(ts, human=bool(getattr(args, "human", False)))
         nxt = row.get("next") or "(empty)"
         verified = row.get("verified", 0)
         opens = row.get("open", 0)
@@ -5684,10 +5744,11 @@ def mode_history(args):
     if getattr(args, "reverse", False):
         label += ", newest first"
     print(label + ")")
+    human = bool(getattr(args, "human", False))
+    now = time.time()
     for index, row in enumerate(hist, 1):
         ts = row.get("t")
-        when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) \
-            if ts else "(no timestamp)"
+        when = _history_when(ts, human=human, now=now)
         nxt = row.get("next") or "(empty)"
         verified = row.get("verified", 0)
         opens = row.get("open", 0)
@@ -6322,7 +6383,11 @@ def main(argv=None):
     hist_p.add_argument("--domains", dest="domains", action="store_true",
         help="group history by next-action domain prefix, the way JIT-Agent factors memory/planning/action/capability")
     hist_p.add_argument("--span", dest="span", action="store_true",
-        help="print the first-seam, last-seam and duration of the window (like git log --stat / journalctl --list-boots)")
+                   help="print the first-seam, last-seam and duration of the window (like git log --stat / journalctl --list-boots)")
+    hist_p.add_argument("--filter", dest="filter", action="append", metavar="KEY=VALUE",
+                   help="keep only rows whose field KEY equals VALUE; repeatable, all filters AND together (like docker ps --filter)")
+    hist_p.add_argument("--human", dest="human", action="store_true",
+                   help="render row timestamps as relative spans (like git log relative-date / ls -lh); JSON and CSV keep the raw epoch")
 
     sk = sub.add_parser("skillbook", help="recurring patterns harvested from the seam history")
     sk.add_argument("--json", action="store_true",
