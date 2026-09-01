@@ -298,6 +298,7 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py audit --json                                      # same, machine-readable JSON
 <python-command> <skill-root>/scripts/mindseam.py audit --strict                                    # exit non-zero when a finding is reported (CI gate)
 <python-command> <skill-root>/scripts/mindseam.py audit --intensity lite                            # cap the printed findings at 3 (full/off; MINDSEAM_INTENSITY sets the default)
+<python-command> <skill-root>/scripts/mindseam.py audit --tag core-drift,next-stall                   # only the listed tags; unknown tags refuse with exit 2 (like `gh pr list` with an unknown label)
 ```
 
 The commands are named for moments, not for passes, so this is the mapping — a lookup, not a

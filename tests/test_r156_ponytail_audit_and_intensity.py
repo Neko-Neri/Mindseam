@@ -57,7 +57,7 @@ class AuditBase(unittest.TestCase):
                     cwd=self.workspace)
         self.assertEqual(r.returncode, 0, r.stderr)
 
-    def _ledger(self, core=(), verified=(), open_=()):
+    def _ledger(self, core=(), verified=(), open_=(), next_="c1 — one"):
         ledger_dir = Path(self.workspace) / ".mindseam"
         ledger_dir.mkdir(parents=True, exist_ok=True)
         path = ledger_dir / "WORKSPACE.md"
@@ -66,7 +66,7 @@ class AuditBase(unittest.TestCase):
         text += ["## Core"] + list(core) + [""]
         text += ["## Verified"] + list(verified) + [""]
         text += ["## Open"] + list(open_) + [""]
-        text += ["## Next", "dom: work", ""]
+        text += ["## Next", next_, ""]
         path.write_text("\n".join(text), encoding="utf-8")
 
 

@@ -697,3 +697,78 @@ persisted risk, clean and finding payloads, exit parity across faces
 (with and without --strict), gate reporting at exit 0 and gating at
 exit 2, and the report-surface parity sweep. Suite after r158:
 1223 passed, 0 failed.
+
+## r159 — audit facets and --tag filter
+
+The r156 audit was a snapshot of the ledger surface: duplicate Open
+rows, duplicate Verified rows, parked Core, blank-next history. Four
+tags, ranked, with the lean verdict and the intensity ladder. r159
+extends the same shape to *the ledger against history* — three new
+"facet" tags borrow from `gh audit-log`, `journalctl --list-boots`
+and ponytail's drift check, and answer "is the ledger telling the
+same story as the recent seams?":
+
+- `goal-stale` — Goal has not been re-anchored in the last 10
+  seams (every recent row lacks a `goal` annotation, but the
+  ledger Goal is set). Replacement: re-run `note --goal` or
+  change Next.
+- `next-stall` — the same `next` appears in ≥3 of the trailing 5
+  history rows without resolution. Replacement: close with
+  `note --close N` or change with `note --next`.
+- `core-drift` — Next is in Core or Core is empty while Next is
+  empty; the Core commitment has drifted from the live work
+  (in either direction). Replacement: re-anchor Next or move
+  it to Core.
+
+The fourth change is a projection: `--tag <list>`, borrowed from
+`gh pr list --label <name>` and `cargo bench --bench <name>`. A
+comma-separated list narrows the report to just those tags; the
+full audit still runs, but only the chosen tags appear in the
+printed report and the JSON `findings` array. The JSON face adds
+`tags` and `by_tag` so a host can tell which tag fired even when
+the projection is empty. Unknown tags refuse with exit 2 to
+stderr, the way `gh --label unknown` refuses an unrecognised
+label. The lean verdict under a filter names the chosen tags —
+"Lean on `core-drift`. Ship." — the way a host reading the JSON
+`lean` field can verify the projection was clean.
+
+The tag taxonomy is now seven entries: the four surface tags keep
+their r156 positions; the three facet tags follow in the order
+they were added. The `order` map inside `audit_findings` builds
+from the tuple, so a stray reorder would change the lite cap
+silently — the new tests pin the order.
+
+### Tests
+test_r159_audit_facets_and_tag_filter.py — 30 tests: tag taxonomy
+pins, goal-stale threshold (10 recent seams, no goal re-anchor),
+goal-stale clean (re-anchored, short history, blank Goal),
+next-stall threshold (3-of-5, single fire because 5 rows cannot
+split 3+3), next-stall uses only the trailing 5, core-drift both
+directions + singular/plural agreement, --tag unknown refused to
+stderr with the known tag set listed, --tag projection hides
+unselected findings, --tag combination, --tag filter to a clean
+projection prints the named lean verdict, --strict under filter
+gates on the projection not the full set, JSON face carries the
+projection + the `by_tag` map + the resolved `tags` list. Plus
+the r156 _ledger fixture gained a `next_` parameter (default
+`c1 — one`) so the parked-core / duplicate-Verified tests do not
+also trip core-drift — the r159 finding is a new top-level
+signal, not a re-statement of an existing one. Suite after r159:
+1253 passed, 0 failed. verify_suite 9/9.
+
+### Gotchas
+- core-drift must be guarded by `if core_items:` — a fresh
+  session has no Core, not a drift. `cargo check` does not
+  complain about a fresh `Cargo.toml` with no deps.
+- The 3-of-5 next-stall bar means two topics cannot both fire
+  from the same 5-row window (5 rows cannot split 3+3). The
+  test that originally expected two findings is wrong by
+  design; the detector is right, and the test was rewritten
+  to exercise the "only the top repeater fires" branch.
+- The r69 doc-drift guard parses `mindseam.py ` lines and
+  extracts every ` --flag` token. The borrowed reference
+  "like `gh pr list --label`" in the new SKILL.md command
+  line became a literal `--label` token, which the r69
+  reverse-direction test flagged as undocumented. The fix
+  was to drop the leading dashes from the borrowed reference
+  (paraphrase the metaphor, do not name the borrower's flag).

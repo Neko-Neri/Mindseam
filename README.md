@@ -136,6 +136,7 @@ the task workspace as the current directory.
 | `audit --json` | Same, machine-readable JSON |
 | `audit --strict` | Exit non-zero when a finding is reported (CI gate) |
 | `audit --intensity lite` | Cap the printed findings at 3 (`full` default, `off` refuses; `MINDSEAM_INTENSITY` sets the default) |
+| `audit --tag core-drift,next-stall` | Only the listed tags; unknown tags refuse with exit 2 (like `gh pr list --label`). Tag set: `delete`, `stdlib`, `yagni`, `shrink`, `goal-stale`, `next-stall`, `core-drift` |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "what done means" --next "first action"

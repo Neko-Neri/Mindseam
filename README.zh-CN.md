@@ -133,6 +133,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `audit --json` | 同上，机器可读 JSON |
 | `audit --strict` | 有发现时以非零码退出（CI 门禁） |
 | `audit --intensity lite` | 打印的发现最多三条（默认 `full`，`off` 拒绝执行；`MINDSEAM_INTENSITY` 可设默认档位） |
+| `audit --tag core-drift,next-stall` | 仅列出指定标签；未知标签拒绝执行并退出码为 2（类似 `gh pr list --label`）。标签集合：`delete`、`stdlib`、`yagni`、`shrink`、`goal-stale`、`next-stall`、`core-drift` |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "完成条件" --next "第一个动作"

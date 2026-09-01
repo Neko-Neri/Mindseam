@@ -6166,7 +6166,22 @@ def mode_discover(json_flag=False):
 # code for over-engineering; the seam audit applies the same shape to
 # the ledger — the artefact this controller actually keeps. Report
 # only: audit never writes, and findings never gate unless --strict.
-AUDIT_TAGS = ("delete", "stdlib", "yagni", "shrink")
+# Borrowed from DietrichGebert/ponytail (MIT): the read-only audit that
+# emits tagged one-line findings ranked biggest first and closes with
+# "Lean already. Ship." when there is nothing to cut. Ponytail audits
+# code for over-engineering; the seam audit applies the same shape to
+# the ledger — the artefact this controller actually keeps. Report
+# only: audit never writes, and findings never gate unless --strict.
+#
+# Tag taxonomy: the four original tags (delete / stdlib / yagni / shrink)
+# audit the ledger surface itself; the three "facet" tags (goal-stale /
+# next-stall / core-drift) audit the ledger against history, the way a
+# ponytail audit considers how the code evolved, not only what the code
+# looks like in this commit.
+AUDIT_TAGS = (
+    "delete", "stdlib", "yagni", "shrink",
+    "goal-stale", "next-stall", "core-drift",
+)
 
 INTENSITY_LEVELS = ("off", "lite", "full")
 INTENSITY_ENV = "MINDSEAM_INTENSITY"
@@ -6275,12 +6290,95 @@ def audit_findings(book, hist):
              % (blank_next, "" if blank_next == 1 else "s"),
              "rotate them out with `history --keep`")
 
+    # Borrowed from `gh audit-log` / `journalctl --list-boots` /
+    # ponytail's "drift" check: a Goal field that has not been
+    # re-confirmed in the most recent seams is parked; the user
+    # moved on, the ledger did not. The detector looks at the last
+    # 10 history rows: if every one of them carried no `goal`
+    # annotation (i.e. the agent did not re-anchor to Goal) and
+    # the ledger Goal is non-empty, the goal is stale. The
+    # threshold is 10 so a short conversation does not trip the
+    # finding; the finding is also emitted as a soft signal —
+    # `goal-stale` is a noun, not a verdict — and the replacement
+    # points the host at `note --goal` to re-anchor.
+    goal_text = (book.get("Goal") or [""])[0].strip() if book.get("Goal") else ""
+    if goal_text and len(hist) >= 10:
+        recent = hist[-10:]
+        stale = [h for h in recent
+                 if not (h.get("goal") or "").strip()
+                 and (h.get("next") or "").strip()]
+        if len(stale) == len(recent):
+            emit("goal-stale",
+                 "Goal has not been re-anchored in the last %d seams"
+                 % len(stale),
+                 "re-run `note --goal ...` to confirm the commitment, or `note --next` to record a new one")
+
+    # Borrowed from ponytail's "drift" pattern and
+    # `tshark -qz io,phs` (long-tail detection): the same `next`
+    # appearing repeatedly in the recent history without becoming
+    # Verified is the agent spinning on a topic it cannot resolve.
+    # The window is the last 5 history rows, and the bar is the
+    # same `next` showing up in 3 of them. The bar is a *fraction*
+    # of the window, not an absolute number, so a session that
+    # has only 2 seams cannot trip it; the replacement points the
+    # host at `note --close` (when the topic actually finished)
+    # or `note --next` (when the topic should change).
+    if len(hist) >= 5:
+        recent = hist[-5:]
+        counts = {}
+        for h in recent:
+            nxt = (h.get("next") or "").strip()
+            if nxt:
+                counts[nxt] = counts.get(nxt, 0) + 1
+        repeats = [(n, c) for n, c in counts.items() if c >= 3]
+        repeats.sort(key=lambda nc: (-nc[1], nc[0]))
+        for nxt, c in repeats:
+            emit("next-stall",
+                 "`%s` appears in %d of the last %d seams without resolution"
+                 % (nxt, c, len(recent)),
+                 "either close the topic with `note --close N` or change it with `note --next`")
+
+    # Borrowed from `git log --check` / `cargo check` (live vs.
+    # declared consistency): if the most recent `next` action
+    # is also pinned in the Core section, the Core entry has
+    # drifted (the agent committed to it but the live work moved
+    # on). Conversely, an empty live `next` while Core still
+    # carries a topic means the Core commitment outlasted the
+    # session. Both directions are recorded as `core-drift` so
+    # a host reading the audit can see the gap either way.
+    # The finding only fires when Core actually has a commitment
+    # to drift from — an empty Core is a fresh session, not a
+    # drift, the way `cargo check` does not complain about a
+    # fresh ``Cargo.toml`` with no deps.
+    live_next = ""
+    if book.get("Next"):
+        # The `Next` field can hold multiple lines (one for
+        # each recorded action); the "live" next is the last
+        # non-empty one, the way the seam renders the rightmost
+        # column.
+        for n in reversed(book["Next"]):
+            if n.strip():
+                live_next = n.strip()
+                break
+    core_items = [c.strip() for c in book.get("Core", []) if c.strip()]
+    if core_items:
+        if live_next and live_next not in core_items:
+            emit("core-drift",
+                 "Next is `%s` but it is not in the Core"
+                 % live_next,
+                 "either move it to Core with `note --core` or change Next with `note --next`")
+        if not live_next:
+            emit("core-drift",
+                 "Next is empty while Core still lists %d item%s"
+                 % (len(core_items), "" if len(core_items) == 1 else "s"),
+                 "re-anchor Next with `note --next ...` or retire the Core commitment")
+
     order = {tag: rank for rank, tag in enumerate(AUDIT_TAGS)}
     findings.sort(key=lambda f: (order[f["tag"]], f["what"]))
     return findings
 
 
-def mode_audit(book, json_flag=False, strict=False, intensity=None):
+def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
     """Audit the ledger for waste, one tagged line per finding.
 
     Borrowed from ponytail's ``/ponytail-audit`` contract: scan the
@@ -6299,25 +6397,57 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None):
     ponytail-off refusal — audit does not run. The JSON face always
     carries the complete finding list, the way a host that asked for
     JSON asked for the data, not the dial.
+
+    ``--tag`` borrows from ``gh pr list --label <name>`` /
+    ``cargo bench --bench <name>``: a comma-separated list of tags
+    narrows the report to just those tags. The full finding set is
+    still computed, but only the chosen tags are printed and only
+    the chosen tags are reflected in the JSON ``findings`` array;
+    the ``by_tag`` map in JSON carries the count per tag so a host
+    can tell which tags fired. An unknown tag is refused with exit
+    2 to stderr, the way ``gh --label unknown`` refuses an
+    unrecognised label.
     """
     level = resolve_intensity(intensity)
     if level == "off":
         print("CANNOT: audit intensity is off.")
         print("  set --intensity lite|full (or MINDSEAM_INTENSITY) to run the audit")
         return 2
+    if tags:
+        chosen = [t.strip() for t in tags.split(",") if t.strip()]
+        unknown = [t for t in chosen if t not in AUDIT_TAGS]
+        if unknown:
+            print("CANNOT: --tag %s is not a recognised audit tag."
+                  % (", ".join(unknown)),
+                  file=sys.stderr)
+            print("  known tags: %s" % ", ".join(AUDIT_TAGS),
+                  file=sys.stderr)
+            return 2
+    else:
+        chosen = []
     hist, _, _ = read_history()
     findings = audit_findings(book, hist)
+    if chosen:
+        findings = [f for f in findings if f["tag"] in chosen]
+    by_tag = {}
+    for f in findings:
+        by_tag[f["tag"]] = by_tag.get(f["tag"], 0) + 1
     if json_flag:
         payload = {
             "lean": not findings,
             "net": len(findings),
             "intensity": level,
+            "tags": chosen or list(AUDIT_TAGS),
+            "by_tag": by_tag,
             "findings": findings,
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0 if not strict else (0 if not findings else 1)
     if not findings:
-        print("Lean already. Ship.")
+        if chosen:
+            print("Lean on %s. Ship." % ", ".join(chosen))
+        else:
+            print("Lean already. Ship.")
         return 0
     shown = findings[:3] if level == "lite" else findings
     for f in shown:
@@ -6466,6 +6596,8 @@ def main(argv=None):
                     help="exit non-zero when a finding is reported (CI gate)")
     au.add_argument("--intensity", dest="intensity", default=None,
                     help="finding verbosity ladder: lite caps the report at 3 findings, full prints all (default), off refuses to run. Flag beats the MINDSEAM_INTENSITY environment variable (like PONYTAIL_DEFAULT_MODE)")
+    au.add_argument("--tag", dest="tag", default=None,
+                    help="comma-separated list of audit tags to include (delete,stdlib,yagni,shrink,goal-stale,next-stall,core-drift); unknown tags are refused. The full audit still runs; only the listed tags appear in the report (like gh pr list --label)")
 
     args = p.parse_args(argv)
 
@@ -6505,7 +6637,8 @@ def main(argv=None):
             book,
             json_flag=getattr(args, "json", False),
             strict=getattr(args, "strict", False),
-            intensity=getattr(args, "intensity", None))
+            intensity=getattr(args, "intensity", None),
+            tags=getattr(args, "tag", None))
     if args.cmd == "seam":
         return mode_seam(
             book,
