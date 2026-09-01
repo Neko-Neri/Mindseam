@@ -162,8 +162,8 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 <python-command> <skill-root>/scripts/mindseam.py history --domains
 <python-command> <skill-root>/scripts/mindseam.py history --span
 <python-command> <skill-root>/scripts/mindseam.py history -n 5
-<python-command> <skill-root>/scripts/mindseam.py history --grep TODO
-<python-command> <skill-root>/scripts/mindseam.py history --exclude TODO
+<python-command> <skill-root>/scripts/mindseam.py history --grep review
+<python-command> <skill-root>/scripts/mindseam.py history --exclude review
 <python-command> <skill-root>/scripts/mindseam.py history --until 3600
 <python-command> <skill-root>/scripts/mindseam.py history --keep 500
 <python-command> <skill-root>/scripts/mindseam.py history --dedup

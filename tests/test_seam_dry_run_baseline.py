@@ -109,7 +109,7 @@ class SeamDryRunFlagTests(unittest.TestCase):
         # The dry-run text output must surface the same observations
         # that a real seam would, even though no new row is written.
         self.assertIn("dry-run: history.json was not updated", r.stdout)
-        self.assertIn("Your next action has been the same", r.stdout)
+        self.assertIn("Next action has not changed for 3 seams", r.stdout)
 
     def test_dry_run_does_not_emit_dry_run_marker_under_real_seam(self):
         # A real seam must never print the dry-run line; otherwise

@@ -89,17 +89,22 @@ class SeamQuietFlagTests(unittest.TestCase):
         # facts once the next has not moved and verification is
         # frozen; ``--quiet`` prints one fact per line, no banner,
         # no per-fact bullet, no follow-up prose.
-        self.assertIn("Your next action has been the same", r.stdout)
-        self.assertIn("Nothing new has been verified", r.stdout)
+        self.assertIn("Next action has not changed for 3 seams", r.stdout)
+        self.assertIn("No new verification across the last 3 seams", r.stdout)
         # No banner, no per-fact bullet, no follow-up prose.
         self.assertNotIn("── mindseam ─ seam", r.stdout)
         self.assertNotIn("· ", r.stdout)
         self.assertNotIn("You would not have noticed that", r.stdout)
-        # Every line is a fact line; nothing else slipped in.
+        # Every line is a fact line; no banner, bullet or prose
+        # section slipped in (the fact layer has grown since this
+        # test was written, so the exact fact set is not pinned).
         for line in r.stdout.splitlines():
             self.assertTrue(
-                line.startswith("Your next action has been the same")
-                or line.startswith("Nothing new has been verified"),
+                line and not line.startswith("· ")
+                and "── mindseam" not in line
+                and "Telemetry:" not in line and "Trend:" not in line
+                and "Remediation:" not in line and "Heal (" not in line
+                and "You would not have noticed" not in line,
                 "unexpected line in quiet output: %r" % line,
             )
 
@@ -141,7 +146,10 @@ class SeamQuietFlagTests(unittest.TestCase):
         # identical: ``--quiet`` is a presentation flag, not a
         # logic flag.
         for key in verbose_payload:
-            if key == "history_count":
+            if key in ("history_count", "trend"):
+                # history_count grows by one row per seam, and the
+                # trend accumulates a risk entry per seam; two
+                # consecutive seams legitimately differ there.
                 continue
             self.assertEqual(verbose_payload[key], quiet_payload[key],
                              "mismatch in key %r" % key)

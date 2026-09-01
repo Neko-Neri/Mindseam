@@ -44,7 +44,8 @@ class SubcommandDocsTests(unittest.TestCase):
 
     def test_the_parser_defines_the_expected_set(self):
         self.assertEqual(parser_subcommands(),
-                         {"seam", "resume", "note", "ship", "skillbook", "info", "discover"})
+                         {"seam", "resume", "note", "ship", "skillbook", "info", "discover",
+                          "history"})
 
     def test_every_documented_invocation_uses_a_real_subcommand(self):
         subs = parser_subcommands()
@@ -60,7 +61,8 @@ class SubcommandDocsTests(unittest.TestCase):
 
     def test_all_subcommands_are_documented_in_skill(self):
         skill = DOCS["SKILL.md"]
-        for sub in ("seam", "note", "ship", "resume", "skillbook", "info", "discover"):
+        for sub in ("seam", "note", "ship", "resume", "skillbook", "info",
+                    "discover", "history"):
             self.assertIn("mindseam.py %s" % sub, skill)
 
 
