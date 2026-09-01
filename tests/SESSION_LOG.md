@@ -664,3 +664,36 @@ declines (unknown key / malformed pair / nothing written on decline),
 grep+filter composition, JSON face, relative spans, raw-epoch
 guarantees across the three machine faces, future timestamps, and the
 helper's contract. Suite after r157: 1211 passed, 0 failed.
+
+---
+
+## Round 158 — resume --json and ship --json close the two-faces rule (2026-09-02)
+
+Every report subcommand already answered --json except resume and ship,
+the two prose-heaviest surfaces. A host gating a delivery on ship had
+to scrape bullet lines; the gh --json family contract says text and
+JSON are two faces of one dataset.
+
+1. resume --json — ledger digest, history count, state repairs,
+   persisted risk (level + reasons), and the trend block with the
+   health score, its grade and its factors. The premise prose and the
+   reentry banner are text-face only: a host cannot consume them, the
+   way seam --json reports a long gap without the reentry banner. The
+   side effect is unchanged — resume still appends one history row
+   under either face.
+2. ship --json — clean flag, findings, gate observations, the risk
+   assessment (level, reasons, escalation, recovery), plus strict and
+   the exit code the host will get. The exit contract is byte-identical
+   across faces: --strict gating is decided before the face is chosen,
+   so a CI host can gate on the process exit code through either face.
+
+note stays single-face on purpose: it is an editor, not a report — its
+output is a ledger echo, and there is nothing for a host to consume.
+
+### Tests
+test_r158_resume_ship_json_faces.py — 12 tests: payload shapes, the
+score/grade agreement, the dropped prose, the unchanged side effect,
+persisted risk, clean and finding payloads, exit parity across faces
+(with and without --strict), gate reporting at exit 0 and gating at
+exit 2, and the report-surface parity sweep. Suite after r158:
+1223 passed, 0 failed.

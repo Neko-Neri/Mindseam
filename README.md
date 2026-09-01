@@ -148,6 +148,7 @@ the task workspace as the current directory.
 <python-command> <skill-root>/scripts/mindseam.py seam --from-stdin
 <python-command> <skill-root>/scripts/mindseam.py ship OUTPUT_FILE
 <python-command> <skill-root>/scripts/mindseam.py resume
+<python-command> <skill-root>/scripts/mindseam.py resume --json                     # ledger digest, risk and health score, machine-readable
 <python-command> <skill-root>/scripts/mindseam.py skillbook
 <python-command> <skill-root>/scripts/mindseam.py skillbook --json
 <python-command> <skill-root>/scripts/mindseam.py info

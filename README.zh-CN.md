@@ -145,6 +145,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 <python-command> <skill-root>/scripts/mindseam.py seam --from-stdin
 <python-command> <skill-root>/scripts/mindseam.py ship OUTPUT_FILE
 <python-command> <skill-root>/scripts/mindseam.py resume
+<python-command> <skill-root>/scripts/mindseam.py resume --json                     # 账本摘要、风险与健康评分，机器可读
 <python-command> <skill-root>/scripts/mindseam.py skillbook
 <python-command> <skill-root>/scripts/mindseam.py skillbook --json
 <python-command> <skill-root>/scripts/mindseam.py info

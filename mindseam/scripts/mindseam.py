@@ -4632,23 +4632,24 @@ def mode_seam(book, json_flag=False, dry_run=False, quiet=False, message=None,
     return 0
 
 
-def mode_resume(book):
+def mode_resume(book, json_flag=False):
+    """Re-anchor after a gap: premise, invariants, full ledger.
+
+    ``--json`` borrows the ``gh --json`` family the way the other
+    subcommands do: the machine face mirrors the text report's data —
+    ledger digest, persisted risk, health score with its grade and
+    factors, the risk trend and the state repairs — without the
+    premise prose, which a host cannot consume anyway. The side
+    effect is unchanged: a resume still appends one history row under
+    either face, the way ``seam --json`` does.
+    """
     hist, _, repair_reasons = read_history()
-    print_reentry(book, "── mindseam ─ resume")
+    if not json_flag:
+        print_reentry(book, "── mindseam ─ resume")
     hist, compact_reasons = append_history(book)
     state_reasons = repair_reasons + compact_reasons
-    if state_reasons:
-        print()
-        print("State repair:")
-        for reason in state_reasons:
-            print("· " + reason)
     meta = read_meta() or {}
     risk = meta.get("risk")
-    if risk:
-        print()
-        print("Persisted risk: %s" % risk.get("level", "low").upper())
-        for reason in risk.get("reasons", []):
-            print("· " + reason)
     score, score_reasons = session_health_score(hist, book=book)
     score_grade = grade(score)
     trend_parts = []
@@ -4660,6 +4661,44 @@ def mode_resume(book):
         trend_parts.append("score: %d/100 (%s)" % (score, score_grade))
         if score_reasons:
             trend_parts.append("score factors: %s" % ", ".join(score_reasons))
+    if json_flag:
+        payload = {
+            "ledger": {
+                "goal": one(book, "Goal") or None,
+                "core": list(book.get("Core", [])),
+                "verified_count": len(book.get("Verified", [])),
+                "open": list(book.get("Open", [])),
+                "next": one(book, "Next") or None,
+            },
+            "history_count": len(hist),
+            "state_repairs": list(state_reasons),
+            "risk": {
+                "level": (risk.get("level", "low")
+                          if isinstance(risk, dict) else "low"),
+                "reasons": list(risk.get("reasons", [])
+                                if isinstance(risk, dict) else []),
+            },
+            "trend": {
+                "risk": [h["risk"] for h in hist[-3:] if h.get("risk")],
+                "score": {
+                    "value": score,
+                    "grade": score_grade,
+                    "factors": list(score_reasons or []),
+                },
+            },
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    if state_reasons:
+        print()
+        print("State repair:")
+        for reason in state_reasons:
+            print("· " + reason)
+    if risk:
+        print()
+        print("Persisted risk: %s" % risk.get("level", "low").upper())
+        for reason in risk.get("reasons", []):
+            print("· " + reason)
     if trend_parts:
         print()
         print("Trend: " + "; ".join(trend_parts))
@@ -5026,12 +5065,16 @@ def claim_without_coverage(lines):
     return flush()
 
 
-def mode_ship(book, text, strict=False):
+def mode_ship(book, text, strict=False, json_flag=False):
     """Report inner-register leakage and completion-gate observations in outgoing text.
 
     A report, not a gate by default: it exits 0 whether or not it finds anything, because
     the caller asked it to look and it looked. With --strict, completion-gate failures
     become non-zero exits: the gate moves from observation to enforcement.
+    ``--json`` borrows the ``gh --json`` family: the findings, the gate
+    observations and the risk assessment ride one payload whose exit
+    contract is byte-identical to the text face — a host gating on the
+    process exit code gets the same answer either way.
     """
     findings = []
     lines = text.splitlines()
@@ -5092,6 +5135,23 @@ def mode_ship(book, text, strict=False):
     escalation = detect_risk_escalation(hist)
     recovery = detect_recovery(hist)
 
+    if json_flag:
+        payload = {
+            "clean": not (findings or gate or risk_reasons
+                          or escalation or recovery),
+            "findings": list(findings),
+            "gate": list(gate),
+            "risk": {
+                "level": risk_level,
+                "reasons": list(risk_reasons),
+                "escalation": list(escalation),
+                "recovery": list(recovery),
+            },
+            "strict": bool(strict),
+            "exit": 2 if (strict and gate) else 0,
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return payload["exit"]
     if not findings and not gate and not risk_reasons and not escalation and not recovery:
         print("clean — the outgoing register holds.")
         return 0
@@ -6292,7 +6352,9 @@ def main(argv=None):
                     help="attach a human-meaningful annotation to the recorded row (like git commit -m / kubectl annotate)")
     sm.add_argument("--from-stdin", dest="from_stdin", action="store_true",
                     help="read one next action per line from standard input (like kubectl apply -f - / xargs)")
-    sub.add_parser("resume", help="premise, invariants and full ledger, after a gap")
+    rs = sub.add_parser("resume", help="premise, invariants and full ledger, after a gap")
+    rs.add_argument("--json", action="store_true",
+                    help="emit machine-readable output for the discoverability layer")
 
     n = sub.add_parser("note", help="record something in the ledger")
     n.add_argument("--goal")
@@ -6317,6 +6379,8 @@ def main(argv=None):
     s.add_argument("file", help="path, or - for stdin")
     s.add_argument("--strict", action="store_true",
                    help="exit non-zero when a finding is reported (CI gate)")
+    s.add_argument("--json", action="store_true",
+                   help="emit machine-readable output for the discoverability layer")
 
     info_p = sub.add_parser("info", help="print an aggregate digest of the workspace state")
     info_p.add_argument("--json", action="store_true",
@@ -6428,7 +6492,8 @@ def main(argv=None):
         print("  repair or remove .mindseam/WORKSPACE.md before recording more state")
         return 2
     if args.cmd == "ship":
-        return mode_ship(book, text, strict=getattr(args, "strict", False))
+        return mode_ship(book, text, strict=getattr(args, "strict", False),
+                         json_flag=getattr(args, "json", False))
     if args.cmd == "skillbook":
         return mode_skillbook(
             json_flag=getattr(args, "json", False))
@@ -6451,7 +6516,7 @@ def main(argv=None):
             from_stdin=getattr(args, "from_stdin", False),
         )
     if args.cmd == "resume":
-        return mode_resume(book)
+        return mode_resume(book, json_flag=getattr(args, "json", False))
     if args.cmd == "info":
         return mode_info(
             book,
