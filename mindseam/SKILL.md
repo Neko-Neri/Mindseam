@@ -295,10 +295,13 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py discover                                          # modules / domains selected for the next pass
 <python-command> <skill-root>/scripts/mindseam.py discover --json                                   # same, machine-readable JSON
 <python-command> <skill-root>/scripts/mindseam.py audit                                             # tagged ledger waste, biggest cut first (report only)
-<python-command> <skill-root>/scripts/mindseam.py audit --json                                      # same, machine-readable JSON; every finding carries an `evidence` block
+<python-command> <skill-root>/scripts/mindseam.py audit --json                                      # same, machine-readable JSON; every finding carries an `evidence` block; top-level `gate` is clean / finding / gated
 <python-command> <skill-root>/scripts/mindseam.py audit --strict                                    # exit non-zero when a finding is reported (CI gate)
 <python-command> <skill-root>/scripts/mindseam.py audit --intensity lite                            # cap the printed findings at 3 (full/off; MINDSEAM_INTENSITY sets the default)
 <python-command> <skill-root>/scripts/mindseam.py audit --tag core-drift,next-stall                   # only the listed tags; unknown tags refuse with exit 2 (like `gh pr list` with an unknown label); evidence rides through the projection
+<python-command> <skill-root>/scripts/mindseam.py audit --since 3600                                # only the last hour of history feeds the facet tags (goal-stale / next-stall / shrink); ledger surface tags keep operating on the full book (like journalctl --since)
+<python-command> <skill-root>/scripts/mindseam.py audit --since 450 --until 250                      # bracket a window: --until is the upper bound on --since, both in seconds before now (like journalctl / git log --until)
+<python-command> <skill-root>/scripts/mindseam.py audit --at 5                                       # audit as of the 1-based row 5 in history: slices hist[:5] so the audit reflects everything that had happened by seam 5 (like git log -1 / gh pr view N)
 ```
 
 The commands are named for moments, not for passes, so this is the mapping — a lookup, not a

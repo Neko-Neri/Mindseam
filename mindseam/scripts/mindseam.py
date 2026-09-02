@@ -5861,6 +5861,31 @@ def mode_info(book, json_flag=False, warnings_only=False,
                  if isinstance(meta.get("risk"), dict) else "unknown"),
         "meta_keys": sorted(str(k) for k in meta),
     }
+    # The audit summary is a roll-up of the r156-r160 audit on the
+    # same ledger + history, the way ``systemctl status`` folds a
+    # sub-service health check into the overall status report. The
+    # numbers come from the same ``audit_findings`` function, so a
+    # host that reads both ``info --json`` and ``audit --json`` gets
+    # matching counts. The summary is computed once and shared
+    # between the JSON and text faces, the way ``warnings`` is.
+    audit_findings_list = audit_findings(book, hist)
+    audit_by_tag = {}
+    for f in audit_findings_list:
+        audit_by_tag[f["tag"]] = audit_by_tag.get(f["tag"], 0) + 1
+    audit_top_tag = None
+    audit_top_count = 0
+    for tag, count in sorted(audit_by_tag.items(),
+                             key=lambda tc: (-tc[1], tc[0])):
+        if count > audit_top_count:
+            audit_top_tag = tag
+            audit_top_count = count
+    payload["audit_summary"] = {
+        "lean": not audit_findings_list,
+        "net": len(audit_findings_list),
+        "by_tag": audit_by_tag,
+        "top_tag": audit_top_tag,
+        "top_tag_count": audit_top_count,
+    }
     if human:
         # Borrowed from ``df -h`` / ``du -h`` / ``ls -lh`` /
         # ``git log --relative-date``: time spans render in
@@ -6024,6 +6049,21 @@ def mode_info(book, json_flag=False, warnings_only=False,
     for warning in payload["warnings"]:
         print()
         print("Warning: " + warning)
+    # The audit summary, like the warnings list, rides on the
+    # info report. The text face is a single line so a host
+    # that paginates the report with ``head -n 12`` still sees
+    # it. The JSON face is the richer block.
+    summary = payload["audit_summary"]
+    if summary["lean"]:
+        print()
+        print("Audit: 0 items removable (lean).")
+    else:
+        top = summary["top_tag"]
+        print()
+        print("Audit: %d item%s removable; top tag %s (%d)."
+              % (summary["net"],
+                 "" if summary["net"] == 1 else "s",
+                 top, summary["top_tag_count"]))
     return 0
 
 
@@ -6521,7 +6561,8 @@ def _evidence_summary(finding):
     return "; ".join(parts)
 
 
-def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
+def mode_audit(book, json_flag=False, strict=False, intensity=None,
+               tags=None, since_seconds=None, until_seconds=None, at_row=None):
     """Audit the ledger for waste, one tagged line per finding.
 
     Borrowed from ponytail's ``/ponytail-audit`` contract: scan the
@@ -6550,6 +6591,21 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
     can tell which tags fired. An unknown tag is refused with exit
     2 to stderr, the way ``gh --label unknown`` refuses an
     unrecognised label.
+
+    ``--since`` / ``--until`` borrow from ``journalctl --since`` /
+    ``find -newer``: a time window in seconds before "now" that
+    narrows the history slice the facet tags see. The ledger
+    surface tags (``delete`` / ``stdlib`` / ``yagni`` /
+    ``core-drift``) keep operating on the full ledger — they
+    have nothing to do with time. Negative values are refused
+    with exit 2 to stderr.
+
+    ``--at <row_id>`` borrows from ``git log -1`` /
+    ``gh pr view N``: a 1-based row index that slices the
+    history to ``hist[:N]`` (everything that had happened by
+    that seam). Out-of-range values are refused with exit 2 to
+    stderr. The text face header names the seam; the JSON face
+    carries the slice in an ``at`` block.
     """
     level = resolve_intensity(intensity)
     if level == "off":
@@ -6568,20 +6624,69 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
             return 2
     else:
         chosen = []
-    hist, _, _ = read_history()
+    for flag_name, value in (("--since", since_seconds),
+                             ("--until", until_seconds)):
+        if value is not None and value < 0:
+            print("CANNOT: %s expects non-negative seconds, got %r"
+                  % (flag_name, value), file=sys.stderr)
+            return 2
+    hist_full, _, _ = read_history()
+    # The window narrows only the history slice the facet tags
+    # see. Ledger-surface tags operate on ``book`` directly and
+    # are unaffected.
+    rows_in = len(hist_full)
+    now_ts = int(time.time())
+    window = {
+        "since_seconds": since_seconds,
+        "until_seconds": until_seconds,
+        "since_cutoff": (now_ts - since_seconds) if since_seconds is not None else None,
+        "until_cutoff": (now_ts - until_seconds) if until_seconds is not None else None,
+        "rows_in": rows_in,
+    }
+    if at_row is not None:
+        if at_row < 1 or at_row > rows_in:
+            print("CANNOT: --at %d out of range (1..%d)"
+                  % (at_row, rows_in), file=sys.stderr)
+            return 2
+        hist = hist_full[:at_row]
+        window["at_row"] = at_row
+        window["rows_out"] = len(hist)
+    else:
+        hist = hist_full
+        if since_seconds is not None:
+            hist = [row for row in hist
+                    if int(row.get("t") or 0) >= window["since_cutoff"]]
+        if until_seconds is not None:
+            hist = [row for row in hist
+                    if int(row.get("t") or 0) <= window["until_cutoff"]]
+        window["rows_out"] = len(hist)
     findings = audit_findings(book, hist)
     if chosen:
         findings = [f for f in findings if f["tag"] in chosen]
     by_tag = {}
     for f in findings:
         by_tag[f["tag"]] = by_tag.get(f["tag"], 0) + 1
+    # The `gate` enum is the r161 addition: a richer status that
+    # does not replace the r156 ``lean`` boolean. ``clean`` says
+    # "no findings, no strict"; ``finding`` says "findings exist
+    # but report-only"; ``gated`` says "findings + --strict, exit
+    # 1". A host that only reads ``gate`` does not need to know
+    # the boolean complement or the strict flag separately.
+    if strict and findings:
+        gate = "gated"
+    elif findings:
+        gate = "finding"
+    else:
+        gate = "clean"
     if json_flag:
         payload = {
             "lean": not findings,
+            "gate": gate,
             "net": len(findings),
             "intensity": level,
             "tags": chosen or list(AUDIT_TAGS),
             "by_tag": by_tag,
+            "history_window": window,
             "findings": findings,
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -6589,9 +6694,17 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None, tags=None):
     if not findings:
         if chosen:
             print("Lean on %s. Ship." % ", ".join(chosen))
+        elif at_row is not None:
+            print("Lean already (at seam %d of %d). Ship."
+                  % (at_row, rows_in))
         else:
             print("Lean already. Ship.")
         return 0
+    if at_row is not None:
+        header = "── mindseam ─ audit (at seam %d of %d)" % (at_row, rows_in)
+    else:
+        header = "── mindseam ─ audit"
+    print(header)
     shown = findings[:3] if level == "lite" else findings
     for f in shown:
         # Borrowed from `git blame --line-porcelain` /
@@ -6753,6 +6866,12 @@ def main(argv=None):
                     help="finding verbosity ladder: lite caps the report at 3 findings, full prints all (default), off refuses to run. Flag beats the MINDSEAM_INTENSITY environment variable (like PONYTAIL_DEFAULT_MODE)")
     au.add_argument("--tag", dest="tag", default=None,
                     help="comma-separated list of audit tags to include (delete,stdlib,yagni,shrink,goal-stale,next-stall,core-drift); unknown tags are refused. The full audit still runs; only the listed tags appear in the report (like gh pr list --label)")
+    au.add_argument("--since", dest="since", type=int, default=None,
+                    help="only consider history rows whose timestamp is within the last N seconds; narrows the facet tags (goal-stale / next-stall / shrink) but leaves the ledger surface tags untouched. Negative values are refused with exit 2 (like journalctl --since)")
+    au.add_argument("--until", dest="until", type=int, default=None,
+                    help="the upper bound on --since, also in seconds before now. Composes with --since to bracket a window (like the same flag on journalctl / git log --until). Negative values are refused with exit 2")
+    au.add_argument("--at", dest="at", type=int, default=None,
+                    help="audit as of the 1-based row N in history: slices the history to hist[:N] so the audit reflects everything that had happened by that seam (like git log -1 / gh pr view N). Out-of-range exits 2 to stderr")
 
     args = p.parse_args(argv)
 
@@ -6793,7 +6912,10 @@ def main(argv=None):
             json_flag=getattr(args, "json", False),
             strict=getattr(args, "strict", False),
             intensity=getattr(args, "intensity", None),
-            tags=getattr(args, "tag", None))
+            tags=getattr(args, "tag", None),
+            since_seconds=getattr(args, "since", None),
+            until_seconds=getattr(args, "until", None),
+            at_row=getattr(args, "at", None))
     if args.cmd == "seam":
         return mode_seam(
             book,

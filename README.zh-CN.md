@@ -123,7 +123,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `skillbook` | 打印从会话历史中提取的反复模式 |
 | `skillbook --json` | 同上，机器可读 JSON |
 | `info` | 打印该工作区的学习摘要 |
-| `info --json` | 同上，机器可读 JSON |
+| `info --json` | 同上，机器可读 JSON；附带 `audit_summary` 块（lean、net、by_tag、top tag），host 可一并读取审计汇总与工作区健康度 |
 | `history` | 查看 seam 审计日志（类似 `git log`） |
 | `history -n N` | 仅打印最近 N 条记录 |
 | `history --json` | 机器可读审计日志尾 |
@@ -134,6 +134,8 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `audit --strict` | 有发现时以非零码退出（CI 门禁） |
 | `audit --intensity lite` | 打印的发现最多三条（默认 `full`，`off` 拒绝执行；`MINDSEAM_INTENSITY` 可设默认档位） |
 | `audit --tag core-drift,next-stall` | 仅列出指定标签；未知标签拒绝执行并退出码为 2（类似 `gh pr list --label`）。标签集合：`delete`、`stdlib`、`yagni`、`shrink`、`goal-stale`、`next-stall`、`core-drift`。evidence 字段随投影保留 |
+| `audit --since 3600` | 仅取最近一小时的历史喂给 facet 标签（`goal-stale` / `next-stall` / `shrink`）；ledger 表面标签仍然扫描整本 book（类似 `journalctl --since`） |
+| `audit --at 5` | 审计到历史的 1-based 第 5 行：把 history 切到 `hist[:5]`，即审计反映到第 5 个 seam 为止的全部历史（类似 `git log -1` / `gh pr view N`）。JSON 的 `gate` 字段为 `clean` / `finding` / `gated` |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "完成条件" --next "第一个动作"

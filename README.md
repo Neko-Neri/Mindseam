@@ -129,7 +129,7 @@ the task workspace as the current directory.
 | `skillbook` | Print recurring patterns extracted from session history |
 | `skillbook --json` | Same, machine-readable JSON |
 | `info` | Print what the suite has learned about this workspace |
-| `info --json` | Same, machine-readable JSON |
+| `info --json` | Same, machine-readable JSON; carries an `audit_summary` block (lean, net, by_tag, top tag) so a host reads the audit roll-up alongside the rest of the workspace health |
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |
 | `audit` | Report tagged ledger waste, biggest cut first (report only, borrowed from ponytail) |
@@ -137,6 +137,8 @@ the task workspace as the current directory.
 | `audit --strict` | Exit non-zero when a finding is reported (CI gate) |
 | `audit --intensity lite` | Cap the printed findings at 3 (`full` default, `off` refuses; `MINDSEAM_INTENSITY` sets the default) |
 | `audit --tag core-drift,next-stall` | Only the listed tags; unknown tags refuse with exit 2 (like `gh pr list --label`). Tag set: `delete`, `stdlib`, `yagni`, `shrink`, `goal-stale`, `next-stall`, `core-drift`. Evidence rides through the projection |
+| `audit --since 3600` | Only the last hour of history feeds the facet tags; ledger surface tags keep operating on the full book (like `journalctl --since`) |
+| `audit --at 5` | Audit as of the 1-based row 5 in history: slices `hist[:5]` so the audit reflects everything that had happened by seam 5 (like `git log -1` / `gh pr view N`). The JSON `gate` field is `clean` / `finding` / `gated` |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "what done means" --next "first action"
