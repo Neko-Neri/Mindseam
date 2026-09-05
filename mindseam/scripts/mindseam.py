@@ -5972,11 +5972,53 @@ def _workspace_fingerprint():
     return hashlib.sha1(seed).hexdigest()[:16]
 
 
+def _workspace_files_snapshot():
+    """Per-artefact (path, mtime, size, exists) for ledger files.
+
+    Borrowed from ``find -printf '%T@ %s %p\n'`` /
+    ``stat --format='%y %s %n'`` semantics: a host running
+    many workspaces side-by-side wants a quick "which file
+    was written last" answer without spawning ``stat``
+    per-file. The shape is stable across replays of the
+    same audit on the same workspace; mtime changes when
+    the file is rewritten; size changes when the file
+    grows; presence flips when a file is created or
+    deleted. The keys are the artefact basenames, the way
+    ``ls -lh`` lists them, so a host that knows the names
+    can read the block in any order.
+    """
+    artefacts = [
+        "WORKSPACE.md",
+        "history.json",
+        "metacognition.json",
+        "skillbook.md",
+    ]
+    out = {}
+    for name in artefacts:
+        path = os.path.join(LEDGER_DIR, name)
+        entry = {"path": os.path.abspath(path),
+                 "exists": os.path.exists(path)}
+        if entry["exists"]:
+            try:
+                st = os.stat(path)
+                entry["mtime"] = int(st.st_mtime)
+                entry["size"] = int(st.st_size)
+            except OSError:
+                entry["mtime"] = 0
+                entry["size"] = 0
+        else:
+            entry["mtime"] = 0
+            entry["size"] = 0
+        out[name] = entry
+    return out
+
+
 def mode_info(book, json_flag=False, warnings_only=False,
               version_only=False, human=False, check_only=False,
               memory_only=False, list_fields=False,
               workspace_id=False, audit_baseline=None,
-              manifest=False):
+              manifest=False, mtime=False, health=False,
+              text_only=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -6120,6 +6162,77 @@ def mode_info(book, json_flag=False, warnings_only=False,
         "holder_pid": lock_holder,
         "lock_path": os.path.abspath(lock_path),
     }
+    # r165: workspace_files lists each ledger artefact with
+    # mtime, size, presence — borrowed from ``find -printf
+    # '%T@ %s %p\n'`` / ``stat --format='%y %s %n'``. The
+    # keys are the artefact basenames, the way ``ls -lh``
+    # lists them, so a host that knows the names can read
+    # the block in any order. A missing file gets mtime=0
+    # size=0, the way ``stat`` reports on a deleted file.
+    if mtime:
+        payload["workspace_files"] = _workspace_files_snapshot()
+    # r165: health rolls up the existing r156-r164 signals
+    # into a single status enum. The names are borrowed
+    # from ``kubectl get componentstatus`` /
+    # ``systemctl is-system-running``: ``ok`` (no
+    # reasons), ``degraded`` (one or more soft reasons like
+    # a long gap or a baselined finding), ``unhealthy``
+    # (one or more hard reasons like a held_by_other lock
+    # or a fresh audit finding). The reasons list is
+    # stable so a host can grep for specific keys.
+    if health:
+        reasons = []
+        if lock_state == "held_by_other":
+            reasons.append({
+                "kind": "lock_held_by_other",
+                "severity": "hard",
+                "detail": ("another writer holds %s (pid=%s)"
+                            % (lock_path, lock_holder)),
+            })
+        elif lock_state == "held_by_us":
+            reasons.append({
+                "kind": "lock_held_by_us",
+                "severity": "degraded",
+                "detail": ("a previous controller process crashed "
+                            "mid-write and left %s behind"
+                            % lock_path),
+            })
+        if payload["last_seam"]["long_gap"]:
+            reasons.append({
+                "kind": "long_gap",
+                "severity": "degraded",
+                "detail": ("last seam is %d seconds old, > %d"
+                            % (gap_seconds, RESUME_GAP)),
+            })
+        if not payload["audit_summary"]["lean"]:
+            net = payload["audit_summary"]["net"]
+            reasons.append({
+                "kind": "audit_finding",
+                "severity": "hard" if net > 0 else "degraded",
+                "detail": ("audit reports %d item%s removable"
+                            % (net, "" if net == 1 else "s")),
+            })
+        if payload["warnings"]:
+            reasons.append({
+                "kind": "warnings",
+                "severity": "degraded",
+                "detail": ("%d warning line%s"
+                            % (len(payload["warnings"]),
+                               "" if len(payload["warnings"]) == 1 else "s")),
+            })
+        # Status enum: any hard reason = unhealthy, any
+        # degraded = degraded, else ok. The names match
+        # the borrowed taxonomy.
+        if any(r["severity"] == "hard" for r in reasons):
+            status = "unhealthy"
+        elif reasons:
+            status = "degraded"
+        else:
+            status = "ok"
+        payload["health"] = {
+            "status": status,
+            "reasons": reasons,
+        }
     if human:
         # Borrowed from ``df -h`` / ``du -h`` / ``ls -lh`` /
         # ``git log --relative-date``: time spans render in
@@ -6250,7 +6363,7 @@ def mode_info(book, json_flag=False, warnings_only=False,
                 "warnings": "list of human-meaningful alert lines",
             },
         }
-        if json_flag:
+        if json_flag and not text_only:
             print(json.dumps(schema, indent=2, ensure_ascii=False))
             return 0
         for section, fields in schema.items():
@@ -6258,7 +6371,7 @@ def mode_info(book, json_flag=False, warnings_only=False,
             for name, doc in fields.items():
                 print("  %-22s  %s" % (name, doc))
         return 0
-    if json_flag:
+    if json_flag and not text_only:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
     print("── mindseam ─ info")
@@ -6298,6 +6411,20 @@ def mode_info(book, json_flag=False, warnings_only=False,
               % (summary["net"],
                  "" if summary["net"] == 1 else "s",
                  top, summary["top_tag_count"]))
+    if mtime and "workspace_files" in payload:
+        # The text face of --mtime is a small section, the
+        # way ``df -h`` reports under ``ls -lh``: one line
+        # per artefact, columns aligned so a host can
+        # grep or awk on the result. The JSON face is the
+        # richer block.
+        print()
+        print("Files:")
+        for name, entry in payload["workspace_files"].items():
+            if entry["exists"]:
+                print("  %-22s  %d bytes  mtime=%d"
+                      % (name, entry["size"], entry["mtime"]))
+            else:
+                print("  %-22s  (missing)" % name)
     return 0
 
 
@@ -7170,6 +7297,12 @@ def main(argv=None):
         help="path to a JSON baseline file (same shape as audit --baseline-write); info --json then carries an audit_baseline_diff block with fresh/baselined counts and a drift flag (like flutter analyze --baseline)")
     info_p.add_argument("--manifest", dest="manifest", action="store_true",
         help="emit an audit_manifest block listing every tag the audit can fire and how many findings each produced, including tags that did not fire (seen-but-clean) so a host can verify the audit actually ran the full detector set")
+    info_p.add_argument("--mtime", dest="mtime", action="store_true",
+        help="emit a workspace_files block listing each ledger artefact (WORKSPACE.md, history.json, metacognition.json, skillbook.md) with mtime, size, and presence, so a host can see which file was written last (like find -printf with T mtime, size, path / stat --format='mtime, size, name')")
+    info_p.add_argument("--health", dest="health", action="store_true",
+        help="emit a health block rolling up lock_state + workspace_id + audit_summary.lean + warnings + last_seam.long_gap into a single status enum (ok / degraded / unhealthy) with a list of reasons (like kubectl get componentstatus / systemctl is-system-running)")
+    info_p.add_argument("--text", dest="text_only", action="store_true",
+        help="force a plain-text report even if --json is also set; the r156 default is text when no face is requested (like the text face of `gh` / `kubectl -o wide`)")
 
     hist_p = sub.add_parser("history", help="tail the seam audit log")
     hist_p.add_argument("-n", "--limit", dest="limit", type=int, default=None,
@@ -7321,6 +7454,9 @@ def main(argv=None):
             workspace_id=getattr(args, "workspace_id", False),
             audit_baseline=getattr(args, "audit_baseline", None),
             manifest=getattr(args, "manifest", False),
+            mtime=getattr(args, "mtime", False),
+            health=getattr(args, "health", False),
+            text_only=getattr(args, "text_only", False),
         )
     if args.cmd == "history":
         return mode_history(args)

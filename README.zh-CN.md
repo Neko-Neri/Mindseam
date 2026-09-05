@@ -127,6 +127,9 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `info --workspace-id` | 输出 16 字符的 workspace 指纹（路径 + ledger mtime），让 host 验证自己确实处于正确的工作区（类似 `direnv stdlib` / `poetry env info`） |
 | `info --audit-baseline <path>` | 附带 `audit_baseline_diff` 块（fresh / baselined / drift），使用与 `audit --baseline` 相同的基线文件（类似 `flutter analyze --baseline`） |
 | `info --manifest` | 附带 `audit_manifest` 块，列出 audit 可以触发的每个标签，包括未触发的（seen-but-clean = 0），让 host 验证检测器集确实跑过 |
+| `info --mtime` | 附带 `workspace_files` 块，列出每个 ledger 工件（WORKSPACE.md / history.json / metacognition.json / skillbook.md）的 mtime、size、exists（类似 `find -printf` / `stat`） |
+| `info --health` | 附带 `health` 块，把 `lock_state` + `audit_summary.lean` + `warnings` + `long_gap` 收口为单个 `ok` / `degraded` / `unhealthy` 状态加 `reasons` 列表（类似 `kubectl get componentstatus` / `systemctl is-system-running`） |
+| `info --text` | 强制纯文本输出，即使同时传了 `--json`（类似 `gh` 的 text 形态 / `kubectl -o wide`） |
 | `history` | 查看 seam 审计日志（类似 `git log`） |
 | `history -n N` | 仅打印最近 N 条记录 |
 | `history --json` | 机器可读审计日志尾 |

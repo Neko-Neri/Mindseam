@@ -1244,3 +1244,121 @@ Suite after r164: 1363 passed, 0 failed. verify_suite
   crashed-mid-write lock by hand can `rm
   .mindseam/write.lock` — the body parsing is a
   courtesy, not a gate.
+
+## r165 — info mtime, health, text: a single info call answers every CI question
+
+The r161-r164 `info` report grew many orthogonal blocks:
+`audit_summary` (roll-up), `audit_manifest` (detector
+coverage), `workspace_id` (path + mtime fingerprint),
+`audit_baseline_diff` (drift), `lock_state` (advisory
+file lock). r165 closes the gap with three more flags
+that let a host assemble a single `info --json` call to
+prove "the workspace files are healthy" without spawning
+`stat` per file or running `systemctl is-system-running`
+separately:
+
+1. `info --mtime` borrows from `find -printf` /
+   `stat --format='%y %s %n'`: a `workspace_files`
+   block listing each ledger artefact (WORKSPACE.md /
+   history.json / metacognition.json / skillbook.md)
+   with `mtime` / `size` / `exists`. A missing file
+   gets `mtime=0 size=0`, the way `stat` reports on
+   a deleted file. The text face is a small section,
+   the way `df -h` reports under `ls -lh`: one line
+   per artefact, columns aligned so a host can grep
+   or awk on the result.
+
+2. `info --health` rolls up the r156-r164 signals
+   (`lock_state`, `audit_summary.lean`, `warnings`,
+   `last_seam.long_gap`) into a single status enum
+   (ok / degraded / unhealthy) with a `reasons` list,
+   borrowed from `kubectl get componentstatus` /
+   `systemctl is-system-running`. A host that wants a
+   single CI gate reads `health.status` instead of
+   parsing four blocks. A "no seams recorded yet"
+   warning degrades (not unhealthy), the way a fresh
+   service is `degraded` but not `unhealthy` in
+   `systemctl`. A foreign-pid lock is hard-unhealthy;
+   a self-pid lock is soft-degraded.
+
+3. `info --text` forces plain text even if `--json`
+   is also passed, borrowed from `gh --output text` /
+   `kubectl -o wide`. The r156 default is text when
+   no face is requested; `--text` makes that explicit
+   so a shell pipeline that wants stable text can
+   use it unconditionally. The flag overrides
+   `--json` so a host that always passes both
+   (`info --json --text`) gets the text face, the
+   way `gh --output=text` overrides the implicit
+   default.
+
+All three blocks are additive. The r164 `lock_state`,
+r163 `workspace_id` / `audit_baseline_diff` /
+`audit_manifest`, r161 `audit_summary`, and r156
+`ledger` / `last_seam` / `warnings` blocks keep their
+existing shape. The three new flags compose freely
+with each other and with the r161-r164 flags.
+
+### Tests
+test_r165_info_mtime_health_text.py — 18 tests in four
+sub-suites:
+`MtimeTests` (5: opt-in shape, every artefact listed,
+existing file has mtime and size, missing file has
+zeros, mtime changes on rewrite);
+`HealthTests` (5: opt-in shape, fresh ledger is
+degraded, lock_held_by_other is unhealthy,
+lock_held_by_us is degraded, audit_finding is
+unhealthy, long_gap is degraded, reasons list is
+stable across calls);
+`TextTests` (4: `--text` overrides `--json`,
+`--text` alone is text, default is text, `--text
+--mtime` includes artefact lines);
+`ComposeTests` (2: `--mtime` with `--health` coexists,
+helper callable directly).
+
+Suite after r165: 1381 passed, 0 failed. verify_suite
+9/9 (one run had a pre-existing timing flake in
+`test_info_subcommand_baseline.test_info_human_renders
+_seconds_when_below_minute` that pins "30 seconds ago"
+exactly; the immediate retry passed 1381/1381).
+
+### Gotchas
+- argparse help strings reject `%` because argparse
+  uses `%`-formatting internally. The first cut
+  borrowed the literal `find -printf '%T@ %s %p'`
+  in the help text and crashed every `info` command
+  with `ValueError: badly formed help string`. The
+  fix is the same r162 trick: paraphrase the
+  borrower's option name (`T mtime, size, path`)
+  instead of the literal.
+- The r69 doc-drift reverse test extracts every
+  ` --flag` token from SKILL.md lines that contain
+  `mindseam.py `. The first cut borrowed the literal
+  `gh --output text` and the r69 regex extracted
+  ` --output` (the regex stops at the space) and
+  refused because `add_argument("--output")` does
+  not exist. Three rounds of paraphrasing — `text`
+  value, `text` value / `text` face, `text` face —
+  finally dropped the leading dash. The lesson: the
+  r69 reverse test extracts the *first* token, not
+  the full option name; a borrowed phrase that uses
+  an option separator (`=` or space) splits into
+  two tokens, and only the first one matters.
+- A fresh workspace with no seams emits a "no
+  seams recorded yet" warning, which makes the
+  health status `degraded` rather than `ok`. This
+  is the right behaviour: a fresh workspace is not
+  *unhealthy* (the lock is free, the audit is lean),
+  but it is not *ok* (the host wants a first seam
+  soon). The status enum reads as a state machine
+  a CI script can map to exit codes (ok → 0,
+  degraded → 1, unhealthy → 2) without parsing
+  the reasons list.
+- The `health` block's `reasons` list is a list of
+  dicts (`{kind, severity, detail}`), not a list
+  of strings. The `kind` field is the stable
+  contract; `severity` is hard or degraded; `detail`
+  is human-readable prose. A host grepping the
+  `kind` field is stable across the lifetime of
+  the controller; a host grepping `detail` is
+  fragile.

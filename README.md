@@ -133,6 +133,9 @@ the task workspace as the current directory.
 | `info --workspace-id` | Emit a 16-hex workspace fingerprint (path + ledger mtime) so a host can verify it is in the right workspace (like `direnv stdlib` / `poetry env info`) |
 | `info --audit-baseline <path>` | Carry an `audit_baseline_diff` block (fresh / baselined / drift) using the same baseline file as `audit --baseline` (like `flutter analyze --baseline`) |
 | `info --manifest` | Carry an `audit_manifest` block listing every tag the audit can fire, including tags that did not fire (seen-but-clean = 0) so a host can verify the detector set actually ran |
+| `info --mtime` | Carry a `workspace_files` block listing each ledger artefact (WORKSPACE.md / history.json / metacognition.json / skillbook.md) with mtime, size, presence (like `find -printf` / `stat`) |
+| `info --health` | Carry a `health` block rolling up `lock_state` + `audit_summary.lean` + `warnings` + `long_gap` into a single `ok` / `degraded` / `unhealthy` status with a `reasons` list (like `kubectl get componentstatus` / `systemctl is-system-running`) |
+| `info --text` | Force a plain-text report even if `--json` is also set (like the text face of `gh` / `kubectl -o wide`) |
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |
 | `audit` | Report tagged ledger waste, biggest cut first (report only, borrowed from ponytail) |
