@@ -6155,6 +6155,122 @@ def _write_info_state(hashes):
     return ok
 
 
+# r168: alias config. Borrowed from ``git alias`` /
+# ``cargo run --example`` / ``kubectl plugin``: a
+# user-defined mapping from short names to full
+# subcommand + arg sequences. The controller reads
+# ``.mindseam/aliases.json`` (created on demand) and
+# merges with a small built-in catalog so the most
+# common CI recipes are available without writing
+# any config. The ``info --aliases`` block exposes
+# the merged catalog to a host, the way ``gh alias
+# list`` shows the user-defined aliases; the
+# top-level dispatch auto-expands a bare alias name
+# into its full argv before argparse sees it.
+ALIASES_BASENAME = "aliases.json"
+
+
+def _alias_default_catalog():
+    """Built-in aliases that ship with the controller.
+
+    These are the recipes the r156-r167 rounds have
+    accreted as "what most users actually type": a
+    CI health check, a one-shot audit, a one-shot
+    workspace fingerprint, etc. They are aliases
+    only — every one of them is reachable as a
+    subcommand with flags. The aliases save keystrokes,
+    the way ``git co`` saves keystrokes for
+    ``git checkout``.
+    """
+    return {
+        "health": {
+            "command": "info",
+            "args": ["--json", "--health", "--workspace-id",
+                     "--audit-baseline-diff", "--features"],
+            "summary": "one-shot CI health probe (like a combined liveness + readiness check)",
+        },
+        "audit-ci": {
+            "command": "audit",
+            "args": ["--json", "--intensity", "lite"],
+            "summary": "CI gate: one-shot audit at lite intensity, JSON for hosts",
+        },
+        "audit-baseline-write": {
+            "command": "audit",
+            "args": ["--baseline-write", ".mindseam/audit-baseline.json"],
+            "summary": "record the current state as the new baseline",
+        },
+        "audit-baseline-check": {
+            "command": "audit",
+            "args": ["--baseline", ".mindseam/audit-baseline.json",
+                     "--strict", "--json"],
+            "summary": "CI gate: exit 1 if there is new debt since the baseline",
+        },
+        "diff": {
+            "command": "info",
+            "args": ["--json", "--changed", "--content-hash"],
+            "summary": "what changed since the last info call (like `git status --porcelain`)",
+        },
+    }
+
+
+def _read_alias_file():
+    """Read the user alias file; return {} on missing or malformed."""
+    path = os.path.join(LEDGER_DIR, ALIASES_BASENAME)
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            data = json.load(fh)
+    except (ValueError, OSError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _merge_aliases():
+    """Built-in + user aliases. User aliases override built-ins."""
+    merged = dict(_alias_default_catalog())
+    for name, body in _read_alias_file().items():
+        if not isinstance(name, str) or not isinstance(body, dict):
+            continue
+        cmd = body.get("command")
+        if not isinstance(cmd, str):
+            continue
+        args = body.get("args") or []
+        if not isinstance(args, list):
+            args = []
+        merged[name] = {
+            "command": cmd,
+            "args": [str(a) for a in args],
+            "summary": body.get("summary", "") if isinstance(
+                body.get("summary"), str) else "",
+        }
+    return merged
+
+
+def _expand_alias_argv(argv):
+    """Expand a bare alias name into its full argv.
+
+    If the first non-flag token in ``argv`` is a known
+    alias name, expand it: the resolved command takes
+    over the position of the alias name, and the alias
+    args are appended after. ``--`` separators in the
+    alias args are preserved, the way ``git config
+    alias.co`` would handle ``f() { git checkout "$@"; }``.
+    Returns the expanded argv; the alias name is
+    discarded (callers that need it can grep argv[0]).
+    """
+    if not argv:
+        return argv
+    head = argv[0]
+    aliases = _merge_aliases()
+    if head not in aliases:
+        return argv
+    spec = aliases[head]
+    return [spec["command"]] + list(spec.get("args") or []) + list(argv[1:])
+
+
 # r167: machine-readable feature catalog. Borrowed from
 # ``gh features list`` (which emits ``name / state / description``
 # JSON) / ``rustup component list`` / OpenAPI's
@@ -6264,7 +6380,7 @@ def mode_info(book, json_flag=False, warnings_only=False,
               workspace_id=False, audit_baseline=None,
               manifest=False, mtime=False, health=False,
               text_only=False, content_hash=False, changed=False,
-              features=False):
+              features=False, aliases=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -6665,6 +6781,30 @@ def mode_info(book, json_flag=False, warnings_only=False,
         # can diff snapshots across controller
         # versions.
         payload["features"] = list(_FEATURE_CATALOG)
+    if aliases:
+        # r168: alias catalog. Built-in aliases are
+        # always present; user-defined aliases come
+        # from ``.mindseam/aliases.json``. Each entry
+        # has ``command`` (a subcommand name) and
+        # ``args`` (a list of arg strings). The catalog
+        # is stable across replays on the same
+        # workspace and changes when the user file
+        # changes, the way ``gh alias list`` does.
+        aliases_map = _merge_aliases()
+        payload["aliases"] = {
+            "config_path": os.path.abspath(
+                os.path.join(LEDGER_DIR, ALIASES_BASENAME)),
+            "user_overrides": sorted(_read_alias_file().keys()),
+            "names": sorted(aliases_map.keys()),
+            "entries": {
+                name: {
+                    "command": spec["command"],
+                    "args": list(spec.get("args") or []),
+                    "summary": spec.get("summary", ""),
+                }
+                for name, spec in aliases_map.items()
+            },
+        }
     if json_flag and not text_only:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -6757,6 +6897,19 @@ def mode_info(book, json_flag=False, warnings_only=False,
             print("  %s  %-26s  %-7s  %s"
                   % (mark, entry["id"], entry["since"],
                      entry["summary"]))
+    if aliases and "aliases" in payload:
+        # r168: text face of the aliases block. One
+        # line per alias, the way ``gh alias list``
+        # prints them, with the resolved argv so a
+        # human can see at a glance what ``audit-ci``
+        # actually invokes.
+        print()
+        print("Aliases:")
+        for name in payload["aliases"]["names"]:
+            entry = payload["aliases"]["entries"][name]
+            args_repr = " ".join(entry["args"])
+            print("  %-26s = %s %s"
+                  % (name, entry["command"], args_repr))
     return 0
 
 
@@ -7564,6 +7717,16 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None,
 def main(argv=None):
     """Parse the subcommand and run it. Returns the process exit code."""
     configure_streams()
+    # r168: expand a bare alias name into its full
+    # argv before argparse sees it. A user who runs
+    # ``mindseam.py audit-ci`` gets the same result
+    # as ``mindseam.py audit --json --intensity lite``,
+    # the way ``git co`` resolves to ``git checkout``.
+    # The expansion is a no-op when the first token is
+    # already a registered subcommand or a flag.
+    if argv is None:
+        argv = sys.argv[1:]
+    argv = _expand_alias_argv(argv)
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -7641,6 +7804,8 @@ def main(argv=None):
         help="emit a changed block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in .mindseam/info-state.json and overwritten on every call (like git status --porcelain)")
     info_p.add_argument("--features", dest="features", action="store_true",
         help="emit a features block listing every flag, block, and gate the controller can do, indexed by stable id and the round that introduced it (like the features list of `gh` / `rustup component list`)")
+    info_p.add_argument("--aliases", dest="aliases", action="store_true",
+        help="emit an aliases block listing built-in and user-defined short names; user aliases come from `.mindseam/aliases.json` (like the list output of `gh alias` / `git config` filter on `alias.`)")
 
     hist_p = sub.add_parser("history", help="tail the seam audit log")
     hist_p.add_argument("-n", "--limit", dest="limit", type=int, default=None,
@@ -7798,6 +7963,7 @@ def main(argv=None):
             content_hash=getattr(args, "content_hash", False),
             changed=getattr(args, "changed", False),
             features=getattr(args, "features", False),
+            aliases=getattr(args, "aliases", False),
         )
     if args.cmd == "history":
         return mode_history(args)

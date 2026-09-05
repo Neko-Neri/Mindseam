@@ -1577,3 +1577,118 @@ immediate retry passed 1427/1427).
   a new round, the way `gh features list` shows
   `state: alpha` / `beta` / `ga` without renaming
   the subcommand.
+
+## r168 — info aliases: short names for common recipes
+
+The r156-r167 surface grew many orthogonal blocks
+(audit_summary, audit_manifest, workspace_id,
+audit_baseline_diff, lock_state, workspace_files,
+health, content_hash, changed, features). A host
+that wants the "common CI recipe" still has to
+type the long form, the way ``git co`` saves
+keystrokes for ``git checkout``. r168 borrows from
+``git config alias.*`` / ``gh alias`` /
+``kubectl plugin``: a mapping from short names to
+full subcommand + arg sequences, with auto-expansion
+before argparse sees the argv.
+
+Two pieces:
+
+1. ``_alias_default_catalog()`` ships 5 built-in
+   aliases that every controller carries without
+   any user config:
+   - ``health`` — one-shot CI health probe (combined
+     liveness + readiness, like a single curl to
+     ``/healthz`` that returns the full report).
+   - ``audit-ci`` — ``audit --json --intensity
+     lite``, the CI gate form.
+   - ``audit-baseline-write`` — record the current
+     state as the new baseline.
+   - ``audit-baseline-check`` — gate that exits 1
+     on new debt.
+   - ``diff`` — ``info --json --changed
+     --content-hash``, the "what changed since
+     last call" report.
+
+2. ``.mindseam/aliases.json`` is a user-overridable
+   file that defines workspace-local aliases. User
+   entries override built-ins, the way
+   ``.git/config`` overrides ``/etc/gitconfig``.
+   The ``_read_alias_file()`` helper tolerates
+   missing or malformed files (returns ``{}``) so
+   a corrupted user file does not break the
+   built-in catalog.
+
+The auto-expansion is a no-op when the first token
+is already a registered subcommand or a flag, so
+the round adds zero risk to existing invocations.
+``info --aliases`` exposes the merged catalog to
+a host, the way ``gh alias list`` does. The JSON
+face is a single ``aliases`` block with
+``config_path`` (the user-file path the host
+should expect), ``user_overrides`` (the sorted
+list of names that came from the user file),
+``names`` (the sorted full list), and ``entries``
+(command / args / summary per alias).
+
+### Tests
+test_r168_aliases.py — 20 tests in four sub-suites:
+`AliasHelperTests` (8: default catalog has 5
+entries, every entry has command + args, expand
+known alias, expand unknown alias passthrough,
+expand empty argv, expand alias with user args
+preserved, user file overrides built-in, malformed
+user file returns builtins);
+`AliasDispatchTests` (6: audit-ci alias invokes
+audit JSON, diff alias runs info, unknown alias
+falls through to argparse, registered subcommand
+passthrough unchanged, --help still works, user
+alias dispatches);
+`AliasesFlagTests` (5: no block when omitted, block
+appears when set, default aliases listed, user
+overrides reported, text face prints aliases);
+`ParserAcceptanceTests` (1: --aliases flag
+registered).
+
+Suite after r168: 1447 passed, 0 failed. verify_suite
+9/9.
+
+### Gotchas
+- The first cut of `_expand_alias_argv` returned
+  ``(expanded, alias_name)`` and `main()` bound
+  the second element to `_alias_used`. The r139
+  AST hygiene guard caught the unused variable;
+  the helper now returns only the expanded argv,
+  matching the simpler ``os.path.expanduser``
+  contract. The four tests that unpacked the
+  tuple were updated to drop the unused
+  assignment.
+- The r69 doc-drift reverse test extracts every
+  ` --flag` token from SKILL.md lines. The
+  borrowed phrases "like `gh alias list` / `git
+  config --get-regexp alias`" and "like the list
+  output of `gh alias` / `git config --list |
+  grep alias`" both tripped the test on the
+  borrower's literal flag (`--get-regexp` /
+  `--list`). The fix is the same r159/r162/r165
+  trick: paraphrase the borrower's option name
+  without the leading dashes (``alias.`` prefix,
+  not `--list`).
+- The default catalog's 5 aliases are not
+  opinionated. ``audit-ci`` is a CI gate; a host
+  that wants a different intensity can pass
+  ``audit-ci --intensity full`` and the alias's
+  args are merged with the user's trailing args,
+  the way `git config alias.co "!git checkout"
+  # extra args` works.
+- The user file is read once per `main()` call
+  (not cached), so a host that edits the file
+  and re-invokes the controller sees the new
+  aliases on the next call. There is no in-memory
+  cache; the file is the source of truth, the
+  way `~/.gitconfig` is for `git`.
+- The ``--aliases`` flag is separate from
+  ``--features`` (r167). A host that wants the
+  full controller manifest reads both blocks;
+  ``--features`` is the flag/block index,
+  ``--aliases`` is the dispatch table.
