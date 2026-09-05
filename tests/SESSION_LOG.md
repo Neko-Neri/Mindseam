@@ -1038,3 +1038,98 @@ Suite after r162: 1329 passed, 0 failed. verify_suite 9/9.
   records the state and then gates against it. The
   reverse order would silently drop the just-written
   baseline (it would not exist when read runs).
+
+## r163 — info environment proof: workspace_id, audit_baseline_diff, audit_manifest
+
+The r161 `info` report folded the audit roll-up into the
+workspace health report. r163 extends the same shape with
+three small, orthogonal flags that let a host prove "I am
+in the right place", "I am running the same audit baseline",
+and "I am running the full detector set" without parsing
+the path string or running the audit twice:
+
+1. `info --workspace-id` borrows from `direnv stdlib` /
+   `poetry env info` / `pytest --test-environment`: a 16-hex
+   SHA-1 fingerprint of the absolute workspace path plus the
+   ledger mtime. Stable across replays of the same audit on
+   the same workspace; changes if the path or the ledger is
+   rewritten. JSON face gains `workspace_id: {id, path,
+   ledger_mtime}`. The id is the same 16-hex shape as the
+   r162 audit fingerprint, so a host can use one digest
+   family across both surfaces.
+
+2. `info --audit-baseline <path>` borrows from `flutter
+   analyze --baseline`: an `audit_baseline_diff` block
+   carrying `fresh` / `baselined` / `drift` counts. Reuses
+   the r162 `_audit_baseline_read` and `_finding_fingerprint`
+   helpers so the numbers agree with the live `audit
+   --baseline --json` payload — a host reading both
+   surfaces gets matching totals. A missing baseline file
+   is treated as empty (the first-time-on-a-fresh-ledger
+   case), every finding is fresh, and `drift` is `true`.
+
+3. `info --manifest` borrows from `flutter doctor
+   --suppress-analytics` / `cargo clippy --no-deps`: an
+   `audit_manifest` block listing every tag the audit
+   *can* fire, with the count for each, including the
+   tags that did not fire (seen-but-clean = 0). The
+   manifest's fired counts match the r161 `audit_summary`
+   `by_tag` exactly; the un-fired tags prove the detector
+   set was actually run, not skipped.
+
+All three blocks are additive. The r161 `audit_summary`,
+r156 `ledger` / `last_seam` / `warnings`, and `history_count`
+blocks keep their existing shape. The three flags compose
+freely with each other and with `--json`, `--human`,
+`--warnings-only`. A `info --json --workspace-id
+--audit-baseline bl.json --manifest` run emits all three
+new blocks in one payload, the way a CI script can prove
+"same workspace, same baseline, full detector set" in a
+single HTTP call.
+
+### Tests
+test_r163_info_workspace_id_audit_baseline_manifest.py —
+19 tests in four sub-suites:
+`WorkspaceIdTests` (6: opt-in shape, full shape, stable
+across calls, changes when ledger rewritten, changes
+across workspaces, helper callable directly);
+`AuditBaselineDiffTests` (5: opt-in shape, full shape with
+drift flag, drift flips on new debt, agreement with
+`audit --baseline --json` baselined count, missing
+baseline = everything fresh);
+`ManifestTests` (5: opt-in shape, every tag listed, clean
+ledger = zero fired, wasteful ledger counts, agreement
+with `audit_summary.by_tag`); `ComposeTests` (3: all
+three flags together, each flag independent, omitted
+flag stays out of payload).
+
+Suite after r163: 1348 passed, 0 failed. verify_suite 9/9.
+
+### Gotchas
+- The workspace fingerprint sleeps 1.1s in the "changes when
+  rewritten" test to push the ledger mtime past the
+  filesystem resolution. mtime resolution on Windows is
+  ~16ms but the OS may round to whole seconds on
+  FAT/exFAT; the 1.1s gap avoids the round-to-same-second
+  race that is the r157 lesson in a different costume.
+- `_workspace_fingerprint_ledger_mtime` returns 0 when the
+  ledger is missing (a fresh workspace that has not yet
+  recorded a seam). The id is still stable across replays
+  on the same empty workspace, but two fresh workspaces
+  on the same path with no ledger will collide — by
+  design, the fingerprint is a path + mtime hash, not a
+  cryptographic identity. A host that needs identity
+  should use the path string itself.
+- The `info --audit-baseline` flag is positional in spirit
+  (takes a path), but the parser wires it as
+  `dest="audit_baseline"`. The dispatch reads
+  `args.audit_baseline` directly, so the flag's name
+  matches the JSON block's name and the tests do not
+  have to remember a separate kwarg spelling.
+- The manifest's `by_tag` map carries every tag in
+  `AUDIT_TAGS` (the r159 tuple), including the four
+  surface tags and the three facet tags. The
+  `tags_fired` / `tags_clean` counts are derived from
+  this map; they are not separate computations, so a
+  typo in the manifest cannot drift from the audit
+  reality.

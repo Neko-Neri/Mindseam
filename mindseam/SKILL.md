@@ -252,6 +252,9 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py info --check                          # report ledger health issues, exit 2 on problems (like git fsck, npm doctor)
 <python-command> <skill-root>/scripts/mindseam.py info --memory                        # report workspace disk size in human units (like free -m / du -h)
 <python-command> <skill-root>/scripts/mindseam.py info --list-fields                  # describe the ledger schema (like kubectl explain / man page)
+<python-command> <skill-root>/scripts/mindseam.py info --workspace-id                      # emit a 16-hex workspace fingerprint (path + ledger mtime) so a host can verify it is in the right workspace (like direnv stdlib / poetry env info)
+<python-command> <skill-root>/scripts/mindseam.py info --audit-baseline baseline.json     # carry an audit_baseline_diff block (fresh / baselined / drift) using the same baseline file as `audit --baseline` (like flutter analyze --baseline)
+<python-command> <skill-root>/scripts/mindseam.py info --manifest                         # carry an audit_manifest block listing every tag the audit can fire, including tags that did not fire (seen-but-clean = 0) so a host can verify the detector set actually ran
 <python-command> <skill-root>/scripts/mindseam.py history                                    # tail the seam audit log (like git log)
 <python-command> <skill-root>/scripts/mindseam.py history --head 5                                # first 5 entries only (like head -n 5)
 <python-command> <skill-root>/scripts/mindseam.py history --tail 5                                # last 5 entries only (like tail -n 5, alias of -n)

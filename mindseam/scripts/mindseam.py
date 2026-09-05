@@ -5817,9 +5817,42 @@ def mode_history(args):
     return 0
 
 
+def _workspace_fingerprint_ledger_mtime():
+    """The ledger mtime used in the workspace fingerprint."""
+    ledger = os.path.join(os.path.abspath(os.getcwd()), LEDGER)
+    try:
+        return int(os.path.getmtime(ledger))
+    except OSError:
+        return 0
+
+
+def _workspace_fingerprint():
+    """A stable 16-hex digest of the current workspace root.
+
+    Borrowed from ``direnv stdlib`` / ``poetry env info`` /
+    ``pytest --test-environment`` semantics: a host running
+    many workspaces side-by-side needs a quick "am I in the
+    right place" check. The fingerprint is the SHA-1 (truncated
+    to 16 hex chars, the same shape as the r162 audit
+    fingerprint) of the absolute workspace path plus the
+    ``.mindseam/WORKSPACE.md`` mtime. The path lets a host
+    detect "wrong directory" mismatches; the mtime lets it
+    detect "ledger rewritten by a different run" mismatches.
+    Both are stable across replays of the same audit, the
+    way ``git rev-parse HEAD:path`` is stable across ``git
+    status`` calls.
+    """
+    path = os.path.abspath(os.getcwd())
+    seed = ("%s\x00%d" % (path, _workspace_fingerprint_ledger_mtime())
+            ).encode("utf-8")
+    return hashlib.sha1(seed).hexdigest()[:16]
+
+
 def mode_info(book, json_flag=False, warnings_only=False,
               version_only=False, human=False, check_only=False,
-              memory_only=False, list_fields=False):
+              memory_only=False, list_fields=False,
+              workspace_id=False, audit_baseline=None,
+              manifest=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -5887,6 +5920,57 @@ def mode_info(book, json_flag=False, warnings_only=False,
         "top_tag": audit_top_tag,
         "top_tag_count": audit_top_count,
     }
+    # r163: the workspace fingerprint lets a host (CI, direnv
+    # hook, ``poetry run``, ``pytest --test-environment``) prove
+    # "I am in the right place" without parsing the path string.
+    # Stable across replays of the same audit on the same
+    # workspace; changes if the path or the ledger mtime changes.
+    if workspace_id:
+        payload["workspace_id"] = {
+            "id": _workspace_fingerprint(),
+            "path": os.path.abspath(os.getcwd()),
+            "ledger_mtime": _workspace_fingerprint_ledger_mtime(),
+        }
+    # r163: the baseline diff reuses the r162 baseline read so
+    # a single ``info --json`` call can show "how much new debt
+    # since the last snapshot", the way ``flutter analyze
+    # --baseline`` lets a CI script detect drift without running
+    # the full analysis. The fresh / baselined counts come from
+    # the same ``audit_findings`` function as ``audit_summary``
+    # so the numbers agree across the two subcommands.
+    if audit_baseline:
+        baseline_findings = _audit_baseline_read(audit_baseline)
+        baseline_fps = _fingerprint_findings(baseline_findings)
+        fresh = 0
+        baselined = 0
+        for f in audit_findings_list:
+            if _finding_fingerprint(f) in baseline_fps:
+                baselined += 1
+            else:
+                fresh += 1
+        payload["audit_baseline_diff"] = {
+            "baseline_path": os.path.abspath(audit_baseline),
+            "fresh": fresh,
+            "baselined": baselined,
+            "drift": fresh > 0,
+        }
+    # r163: the manifest lists every tag the audit *can* fire,
+    # with the count for each, including the tags that did not
+    # fire (seen-but-clean = 0). A host reading this block can
+    # tell at a glance whether the audit was actually
+    # comprehensive on this ledger — a missing tag means the
+    # detector did not run, not just that the detector found
+    # nothing.
+    if manifest:
+        manifest_map = {}
+        for tag in AUDIT_TAGS:
+            manifest_map[tag] = audit_by_tag.get(tag, 0)
+        payload["audit_manifest"] = {
+            "tags_total": len(AUDIT_TAGS),
+            "tags_fired": sum(1 for c in manifest_map.values() if c),
+            "tags_clean": sum(1 for c in manifest_map.values() if not c),
+            "by_tag": manifest_map,
+        }
     if human:
         # Borrowed from ``df -h`` / ``du -h`` / ``ls -lh`` /
         # ``git log --relative-date``: time spans render in
@@ -6931,6 +7015,12 @@ def main(argv=None):
         help="report workspace disk size in human units (like free -m / du -h / docker system df)")
     info_p.add_argument("--list-fields", dest="list_fields", action="store_true",
         help="describe the ledger schema (like kubectl explain / man page)")
+    info_p.add_argument("--workspace-id", dest="workspace_id", action="store_true",
+        help="emit a stable 16-hex workspace fingerprint (path + ledger mtime) so a host can verify it is in the right workspace (like direnv stdlib / poetry env info / pytest --test-environment)")
+    info_p.add_argument("--audit-baseline", dest="audit_baseline", default=None,
+        help="path to a JSON baseline file (same shape as audit --baseline-write); info --json then carries an audit_baseline_diff block with fresh/baselined counts and a drift flag (like flutter analyze --baseline)")
+    info_p.add_argument("--manifest", dest="manifest", action="store_true",
+        help="emit an audit_manifest block listing every tag the audit can fire and how many findings each produced, including tags that did not fire (seen-but-clean) so a host can verify the audit actually ran the full detector set")
 
     hist_p = sub.add_parser("history", help="tail the seam audit log")
     hist_p.add_argument("-n", "--limit", dest="limit", type=int, default=None,
@@ -7079,6 +7169,9 @@ def main(argv=None):
             check_only=getattr(args, "check_only", False),
             memory_only=getattr(args, "memory_only", False),
             list_fields=getattr(args, "list_fields", False),
+            workspace_id=getattr(args, "workspace_id", False),
+            audit_baseline=getattr(args, "audit_baseline", None),
+            manifest=getattr(args, "manifest", False),
         )
     if args.cmd == "history":
         return mode_history(args)

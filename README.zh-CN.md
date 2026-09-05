@@ -124,6 +124,9 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `skillbook --json` | 同上，机器可读 JSON |
 | `info` | 打印该工作区的学习摘要 |
 | `info --json` | 同上，机器可读 JSON；附带 `audit_summary` 块（lean、net、by_tag、top tag），host 可一并读取审计汇总与工作区健康度 |
+| `info --workspace-id` | 输出 16 字符的 workspace 指纹（路径 + ledger mtime），让 host 验证自己确实处于正确的工作区（类似 `direnv stdlib` / `poetry env info`） |
+| `info --audit-baseline <path>` | 附带 `audit_baseline_diff` 块（fresh / baselined / drift），使用与 `audit --baseline` 相同的基线文件（类似 `flutter analyze --baseline`） |
+| `info --manifest` | 附带 `audit_manifest` 块，列出 audit 可以触发的每个标签，包括未触发的（seen-but-clean = 0），让 host 验证检测器集确实跑过 |
 | `history` | 查看 seam 审计日志（类似 `git log`） |
 | `history -n N` | 仅打印最近 N 条记录 |
 | `history --json` | 机器可读审计日志尾 |
