@@ -949,3 +949,92 @@ regression).
   is the same pre-existing pin from `info --human`
   (a42f2fe). The fix is a wider tolerance window, not a
   r161 rollback.
+
+## r162 — audit baseline: record and gate
+
+r156-r161 gave the audit verdict, the facet tags, the evidence
+link, the tag projection, the time window, the gate enum, and
+the info roll-up. r162 closes the gap with detekt /
+eslint --baseline / terraform plan -detailed-exitcode / cargo
+clippy: a baseline file records findings the team has already
+accepted, and the gate only fires on *new* findings. Old debt
+stays in the report so a reviewer sees it, but does not fail
+CI.
+
+Two new flags on the `audit` subcommand:
+
+- `audit --baseline <path>` reads a JSON baseline file.
+  Findings whose (tag, what) fingerprint matches a baseline
+  entry are moved to a separate `baselined_findings` list
+  (JSON) and tagged `[baselined]` in the text face. The
+  `net` count, `by_tag` map, `lean` boolean, `gate` enum,
+  and `--strict` exit code all see only the *fresh*
+  (non-baselined) findings. A clean run under a baseline
+  reports `lean: true, net: 0, gate: clean` while still
+  listing the baselined debt in `baselined_findings`.
+
+- `audit --baseline-write <path>` writes the *unprojected*
+  current finding list to a JSON file. The write happens
+  before the read, so `audit --baseline-write X --baseline X`
+  records the state and then marks every current finding
+  as baselined in the same run — the way `eslint
+  --output-file` followed by `eslint --baseline` work
+  in a CI script, in one invocation.
+
+The fingerprint is the 16-hex-char SHA-1 of `(tag, what)`.
+The `replacement` and `evidence` fields are deliberately
+*not* part of the fingerprint: the evidence names the rows
+in the slice, which drifts under `--since` / `--at` /
+`--tag` without the underlying waste changing. A finding
+with the same waste but different evidence (e.g. the same
+delete but with different seam indices after a window
+reslice) still matches, so the baseline tracks the work,
+not the noise.
+
+The Net line gained a `(N baselined)` suffix when any
+findings are baselined, the way a CI report shows
+"3 passed, 1 skipped" so a host parsing stdout can
+distinguish acknowledged debt from new debt without
+parsing JSON.
+
+### Tests
+test_r162_audit_baseline.py — 20 tests in four sub-suites:
+`BaselineWriteTests` (3: round-tripable write, unprojected
+under `--tag`, write failure refused), `BaselineReadTests`
+(5: known findings moved to baselined list, only matching
+fingerprints mark, missing file = empty, malformed file =
+empty, fingerprint ignores evidence drift),
+`BaselineGateTests` (4: strict + baselined-only exits 0,
+strict + fresh finding still gates exit 1, strict without
+baseline preserves r156 contract, text face `[baselined]`
+marker), `BaselineComposeTests` (3: composes with `--tag`,
+chained write+read marks everything, composes with `--at`
++ `--strict`), and `BaselineHelperTests` (5: fingerprint
+determinism, length, tag sensitivity, what sensitivity,
+missing-tag stability).
+
+Suite after r162: 1329 passed, 0 failed. verify_suite 9/9.
+
+### Gotchas
+- `_baseline_paths()` was added in the first cut but never
+  called; r62's "no unplugged monitors" guard caught the
+  dead code and the helper was removed before commit.
+- The r69 doc-drift guard picks up the literal ` --flag`
+  token in any line containing `mindseam.py `. The
+  borrowed phrase "like `eslint --output-file`" was
+  picked up as ` --output-file` and refused. The fix is
+  the same r159 trick: paraphrase the metaphor
+  ("like the `outputFile` option of `eslint` / `flake8`")
+  so the borrower's flag never appears as a literal
+  ` --flag` token.
+- A malformed or missing baseline file is treated as an
+  empty baseline (the first-time-on-a-fresh-ledger case)
+  rather than as a hard error; the audit still runs to
+  completion. This matches the "fail open" pattern of
+  `eslint --baseline` and `terraform plan -out=...` —
+  the absence of state is not the same as bad state.
+- Baseline read happens *after* baseline write, so a
+  chained `--baseline-write X --baseline X` invocation
+  records the state and then gates against it. The
+  reverse order would silently drop the just-written
+  baseline (it would not exist when read runs).

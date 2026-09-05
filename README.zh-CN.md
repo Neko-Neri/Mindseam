@@ -136,6 +136,8 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `audit --tag core-drift,next-stall` | 仅列出指定标签；未知标签拒绝执行并退出码为 2（类似 `gh pr list --label`）。标签集合：`delete`、`stdlib`、`yagni`、`shrink`、`goal-stale`、`next-stall`、`core-drift`。evidence 字段随投影保留 |
 | `audit --since 3600` | 仅取最近一小时的历史喂给 facet 标签（`goal-stale` / `next-stall` / `shrink`）；ledger 表面标签仍然扫描整本 book（类似 `journalctl --since`） |
 | `audit --at 5` | 审计到历史的 1-based 第 5 行：把 history 切到 `hist[:5]`，即审计反映到第 5 个 seam 为止的全部历史（类似 `git log -1` / `gh pr view N`）。JSON 的 `gate` 字段为 `clean` / `finding` / `gated` |
+| `audit --baseline baseline.json` | 仅对**新** finding（相对基线而言）触发 gate；已入库的 finding 移到 `baselined_findings`（JSON）并在文本面打 `[baselined]` 标记。`net` 与 `--strict` 只看 fresh 集（类似 `eslint --baseline`） |
+| `audit --baseline-write baseline.json` | 把当前（未投影的）findings 写入 JSON 文件，下次运行可作为 `--baseline` 使用（类似 `eslint --output-file`）。写先于读，所以 `--baseline-write X --baseline X` 一次调用即可完成"记录并门禁" |
 
 ```text
 <python-command> <skill-root>/scripts/mindseam.py note --goal "完成条件" --next "第一个动作"

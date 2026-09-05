@@ -302,6 +302,8 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py audit --since 3600                                # only the last hour of history feeds the facet tags (goal-stale / next-stall / shrink); ledger surface tags keep operating on the full book (like journalctl --since)
 <python-command> <skill-root>/scripts/mindseam.py audit --since 450 --until 250                      # bracket a window: --until is the upper bound on --since, both in seconds before now (like journalctl / git log --until)
 <python-command> <skill-root>/scripts/mindseam.py audit --at 5                                       # audit as of the 1-based row 5 in history: slices hist[:5] so the audit reflects everything that had happened by seam 5 (like git log -1 / gh pr view N)
+<python-command> <skill-root>/scripts/mindseam.py audit --baseline baseline.json                       # gate only on findings *new* relative to the baseline; baselined findings move to `baselined_findings` (JSON) and are marked `[baselined]` in text (like eslint --baseline)
+<python-command> <skill-root>/scripts/mindseam.py audit --baseline-write baseline.json                  # record the current (unprojected) findings to a JSON file the next run can use as `--baseline` (like the `outputFile` option of `eslint` / `flake8`)
 ```
 
 The commands are named for moments, not for passes, so this is the mapping — a lookup, not a

@@ -31,6 +31,7 @@ Standard library only. No network. Writes exactly one directory: .mindseam/
 import argparse
 import codecs
 import collections
+import hashlib
 import json
 import math
 import os
@@ -6561,8 +6562,64 @@ def _evidence_summary(finding):
     return "; ".join(parts)
 
 
+def _finding_fingerprint(finding):
+    """One 16-hex-char digest of a finding's (tag, what) pair.
+
+    Borrowed from ``git hash-object`` / ``md5sum`` semantics: two
+    findings are "the same" when they named the same tag and the
+    same ``what`` string, because both are derived from the same
+    ledger rows. The ``replacement`` and ``evidence`` fields are
+    *not* part of the fingerprint — the evidence names the rows
+    in the slice, which drifts under ``--since`` / ``--at``
+    without the underlying waste changing.
+    """
+    key = "%s\x00%s" % (finding.get("tag", ""), finding.get("what") or "")
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
+
+
+def _fingerprint_findings(findings):
+    """Return a set of stable fingerprints for a findings list."""
+    return {_finding_fingerprint(f) for f in findings}
+
+
+def _audit_baseline_read(path):
+    """Read a baseline findings list, tolerate missing/corrupt."""
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            data = json.load(fh)
+    except (ValueError, OSError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return data
+
+
+def _audit_baseline_write(path, findings):
+    """Write a new baseline file with the current findings."""
+    parent = os.path.dirname(os.path.abspath(path)) or os.curdir
+    os.makedirs(parent, exist_ok=True)
+    body = json.dumps(findings, ensure_ascii=False, indent=2)
+    # ``atomic_write_text`` is defined in this same file; the
+    # local scope resolves it without an import. The fallback
+    # is a plain write for test hosts that stub out the ledger
+    # dir with a tmpfs inode.
+    try:
+        problem = atomic_write_text(path, body)
+    except NameError:
+        try:
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(body)
+            problem = None
+        except OSError as exc:
+            problem = str(exc)
+    return problem
+
+
 def mode_audit(book, json_flag=False, strict=False, intensity=None,
-               tags=None, since_seconds=None, until_seconds=None, at_row=None):
+               tags=None, since_seconds=None, until_seconds=None,
+               at_row=None, baseline=None, baseline_write=None):
     """Audit the ledger for waste, one tagged line per finding.
 
     Borrowed from ponytail's ``/ponytail-audit`` contract: scan the
@@ -6591,6 +6648,26 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None,
     can tell which tags fired. An unknown tag is refused with exit
     2 to stderr, the way ``gh --label unknown`` refuses an
     unrecognised label.
+
+    ``--baseline <path>`` borrows from ``eslint --baseline`` /
+    ``terraform plan -detailed-exitcode``: a JSON file of
+    already-acknowledged findings. Findings whose (tag, what)
+    fingerprint matches a baseline entry are moved into the
+    ``baselined_findings`` list (JSON) and marked ``[baselined]``
+    in the text face; the ``net`` count, ``by_tag`` map, and
+    ``--strict`` gate see only the *fresh* (non-baselined)
+    findings. A clean run under a baseline reports
+    ``lean: true, net: 0, gate: clean`` while still listing the
+    baselined debt in ``baselined_findings``.
+
+    ``--baseline-write <path>`` borrows from
+    ``eslint --output-file``'s ``outputFile`` option: write
+    the current findings to a JSON file so the next run can
+    use it as the baseline. The write happens before the
+    report, so a single invocation can record and gate:
+    ``audit --baseline-write X --baseline X`` writes the state
+    and then marks every current finding as baselined in the
+    same run.
 
     ``--since`` / ``--until`` borrow from ``journalctl --since`` /
     ``find -newer``: a time window in seconds before "now" that
@@ -6663,8 +6740,36 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None,
     findings = audit_findings(book, hist)
     if chosen:
         findings = [f for f in findings if f["tag"] in chosen]
+    # Baseline write runs before baseline read so a chained
+    # ``--baseline-write X --baseline X`` invocation records the
+    # current state and then gates against it in one shot — the
+    # way ``eslint --output-file`` writes the report that the
+    # next ``--baseline`` run consumes. The write uses the
+    # *unprojected* finding list (before the --tag filter and
+    # before the baselined marking), because a baseline is a
+    # commitment about the ledger state, not about this run's
+    # projection.
+    if baseline_write:
+        full_now = audit_findings(book, hist)
+        problem = _audit_baseline_write(baseline_write, full_now)
+        if problem:
+            print("CANNOT: --baseline-write failed: %s" % problem,
+                  file=sys.stderr)
+            return 2
+    # Baseline read: any (tag, what) fingerprint already in the
+    # baseline file is a *known* finding.
+    baseline_findings = _audit_baseline_read(baseline) if baseline else []
+    baseline_fps = _fingerprint_findings(baseline_findings)
+    if baseline is not None:
+        for f in findings:
+            f["baselined"] = _finding_fingerprint(f) in baseline_fps
+    # The gate uses the *non-baselined* findings — the ones a
+    # host needs to act on. r156 already pins `lean = not findings`,
+    # so we keep that as the "any findings at all" signal; the
+    # `gate` enum now reflects the new-or-baselined split.
+    fresh_findings = [f for f in findings if not f.get("baselined")]
     by_tag = {}
-    for f in findings:
+    for f in fresh_findings:
         by_tag[f["tag"]] = by_tag.get(f["tag"], 0) + 1
     # The `gate` enum is the r161 addition: a richer status that
     # does not replace the r156 ``lean`` boolean. ``clean`` says
@@ -6672,25 +6777,38 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None,
     # but report-only"; ``gated`` says "findings + --strict, exit
     # 1". A host that only reads ``gate`` does not need to know
     # the boolean complement or the strict flag separately.
-    if strict and findings:
+    if strict and fresh_findings:
         gate = "gated"
-    elif findings:
+    elif fresh_findings:
         gate = "finding"
     else:
         gate = "clean"
+    # ``lean`` is the r156 boolean: True when the audit found no
+    # *new* findings (baselined ones don't count). The r162
+    # addition is that the audit prints a `Baselined: N` line
+    # in the text face when any findings are marked baselined,
+    # and the JSON face carries `baselined_count` alongside
+    # `net`.
+    baselined_count = sum(1 for f in findings if f.get("baselined"))
+    net = len(fresh_findings)
     if json_flag:
         payload = {
-            "lean": not findings,
+            # ``lean`` is the r156 boolean, over fresh findings only
+            # (which is the r156 behaviour when no baseline is in
+            # play). ``gate`` is the r161 enum over the same set.
+            "lean": not fresh_findings,
             "gate": gate,
-            "net": len(findings),
+            "net": net,
+            "baselined": baselined_count,
             "intensity": level,
             "tags": chosen or list(AUDIT_TAGS),
             "by_tag": by_tag,
             "history_window": window,
-            "findings": findings,
+            "findings": fresh_findings,
+            "baselined_findings": [f for f in findings if f.get("baselined")],
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return 0 if not strict else (0 if not findings else 1)
+        return 0 if not strict else (0 if not fresh_findings else 1)
     if not findings:
         if chosen:
             print("Lean on %s. Ship." % ", ".join(chosen))
@@ -6719,14 +6837,32 @@ def mode_audit(book, json_flag=False, strict=False, intensity=None,
         evidence_summary = _evidence_summary(f)
         if evidence_summary:
             line += "  (evidence: %s)" % evidence_summary
+        # r162 marks baselined findings on the text face so a
+        # host tailing the report can tell known debt from new
+        # debt, the way ``eslint --quiet`` separates errors from
+        # warnings and ``git status`` marks renamed files.
+        if f.get("baselined"):
+            line += " [baselined]"
         print(line)
     if len(shown) < len(findings):
         print("+%d more finding%s — rerun with --intensity full to see them."
               % (len(findings) - len(shown),
                  "" if len(findings) - len(shown) == 1 else "s"))
-    print("Net: %d item%s removable."
-          % (len(findings), "" if len(findings) == 1 else "s"))
-    return 0 if not strict else (0 if not findings else 1)
+    # The Net line counts the fresh (non-baselined) findings, the
+    # findings a host still has to act on; baselined ones are
+    # acknowledged debt and are listed with a `[baselined]` suffix
+    # but not counted here.
+    if baselined_count:
+        print("Net: %d item%s removable (%d baselined)."
+              % (net, "" if net == 1 else "s", baselined_count))
+    else:
+        print("Net: %d item%s removable."
+              % (net, "" if net == 1 else "s"))
+    # Strict gates on fresh (non-baselined) findings only —
+    # baselined findings are acknowledged debt and do not fail
+    # the gate, the way eslint --baseline keeps old violations
+    # out of CI until someone fixes them.
+    return 0 if not strict else (0 if not fresh_findings else 1)
 
 
 
@@ -6872,6 +7008,10 @@ def main(argv=None):
                     help="the upper bound on --since, also in seconds before now. Composes with --since to bracket a window (like the same flag on journalctl / git log --until). Negative values are refused with exit 2")
     au.add_argument("--at", dest="at", type=int, default=None,
                     help="audit as of the 1-based row N in history: slices the history to hist[:N] so the audit reflects everything that had happened by that seam (like git log -1 / gh pr view N). Out-of-range exits 2 to stderr")
+    au.add_argument("--baseline", dest="baseline", default=None,
+                    help="path to a JSON baseline file (produced by --baseline-write); findings whose (tag, what) fingerprint matches a baseline entry are marked baselined in the output and excluded from the --strict gate (like eslint --baseline / terraform plan -detailed-exitcode)")
+    au.add_argument("--baseline-write", dest="baseline_write", default=None,
+                    help="write the current audit findings to a JSON file so the next run can use it as --baseline; the write happens before the report, so a single invocation can record and gate in one shot (like eslint --output-file)")
 
     args = p.parse_args(argv)
 
@@ -6915,7 +7055,9 @@ def main(argv=None):
             tags=getattr(args, "tag", None),
             since_seconds=getattr(args, "since", None),
             until_seconds=getattr(args, "until", None),
-            at_row=getattr(args, "at", None))
+            at_row=getattr(args, "at", None),
+            baseline=getattr(args, "baseline", None),
+            baseline_write=getattr(args, "baseline_write", None))
     if args.cmd == "seam":
         return mode_seam(
             book,
