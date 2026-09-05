@@ -139,6 +139,7 @@ the task workspace as the current directory.
 | `info --content-hash` | Emit a `content_hash` block with a short SHA-1 of each ledger artefact, so a host can detect content changes even when mtime is unreliable (like `git rev-parse --short` / `sha1sum`) |
 | `info --changed` | Emit a `changed` block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in `.mindseam/info-state.json` and overwritten on every call (like the porcelain output of `git status`) |
 | `info --features` | Emit a `features` block listing every flag, block, and gate the controller can do, indexed by stable id and the round that introduced it (like the features list of `gh` / `rustup component list`) |
+| `info --format path1,path2` | Render only the values at the given dot-paths (like `docker inspect --format` / `jq -r`) |
 | `info --aliases` | Emit an `aliases` block listing built-in and user-defined short names; user aliases come from `.mindseam/aliases.json`. A bare alias name (`mindseam.py audit-ci`) auto-expands to its full argv before argparse sees it (like `git co` → `git checkout` / the list output of `gh alias`) |
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |

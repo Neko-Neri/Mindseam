@@ -1692,3 +1692,127 @@ Suite after r168: 1447 passed, 0 failed. verify_suite
   full controller manifest reads both blocks;
   ``--features`` is the flag/block index,
   ``--aliases`` is the dispatch table.
+
+## r169 — info --format: dot-path renderer for shell scripts
+
+The r156-r168 `info` report grew many orthogonal
+blocks (audit_summary, audit_manifest, workspace_id,
+audit_baseline_diff, lock_state, workspace_files,
+health, content_hash, changed, features, aliases).
+A host that wants *one* field still has to parse
+the whole JSON, the way a host that wanted
+`.State.Running` from `docker inspect` used to
+parse the whole JSON before `--format` shipped.
+
+r169 borrows from `docker inspect --format` /
+`kubectl get -o jsonpath` / Rust's
+`serde_json::Value::pointer()` / `jq -r '.foo.bar'`:
+a single `--format <path>` flag that prints only
+the values at the given dot-paths. The path
+syntax is intentionally narrow (`foo.bar` /
+`foo[0]` / `foo[*]`) so a host can write the path
+as a one-liner without quoting a JSON path
+expression.
+
+Three pieces:
+
+- `_resolve_path(payload, path)` walks the path
+  and returns the value, or `None` for a missing
+  branch. A missing path returns an empty string
+  at the rendering layer (not exit 2) so a probe
+  can ask "is this feature present?" without
+  crashing.
+- `_format_path(payload, path)` renders one path
+  to a string. Scalars render as `str(value)`;
+  bools render as `true` / `false`; lists render
+  as one element per line, the way `jq -r
+  '.foo[*]'` does. A list of dicts at `a[*].id`
+  recurses so each element's `id` field resolves.
+- `_format_paths(payload, path_spec)` parses a
+  comma-separated list of paths and renders
+  them as one block per path, separated by a
+  blank line, the way `kubectl get -o
+  jsonpath='{range ...}{end}'` does.
+
+The `--format` short-circuit sits *after* every
+other block has been populated, so a host can
+`--format features[0].id` without requesting
+`--features`; the `features` block is a hand-
+curated catalog and is always present. The audit
+/ lock / mtime blocks need their flags to be
+present, but `features` is cheap to populate
+unconditionally.
+
+A host reads one field without parsing the whole
+JSON, the way `docker inspect --format
+'{{.State.Running}}'` does. A CI script that wants
+the audit net count reads `info --format
+'audit_summary.net'` and gets the integer on
+stdout, no `jq` pipeline needed.
+
+### Tests
+test_r169_info_format.py — 30 tests in three
+sub-suites:
+`ResolvePathTests` (12: top-level key, dotted
+path, deep dotted path, list index positive /
+negative / out-of-range, whole-list indexer
+`[*]` and `.` shortcut, missing key, dotted path
+through list indexer, empty path, list index on
+non-list);
+`FormatPathTests` (10: scalar int / string / bool
+true / bool false, missing path returns empty,
+list renders one per line, list of dicts walks
+nested fields, multi-path renders separate
+blocks, multi-path with missing, multi-path
+strips whitespace, empty spec returns empty);
+`FormatFlagTests` (8: single value, multi-path,
+missing path returns empty, no JSON wrapper,
+composes with features, list renders one per
+line through the flag, short-circuits other
+outputs).
+
+Suite after r169: 1477 passed, 0 failed. verify_suite
+9/9.
+
+### Gotchas
+- The `features` block now ships unconditionally
+  (the r167 test that pinned "no features block
+  when omitted" had to be relaxed: the catalog is
+  a hand-curated constant with no runtime cost,
+  so it is always present). The `info --format
+  features[0].id` path now works without the
+  `--features` flag, which is the right behaviour
+  — a host should not have to opt in to a free
+  block to probe its own capability manifest.
+- The `--format` short-circuit sits *after* the
+  aliases block but *before* the JSON print, so
+  every other block has been populated. The
+  first cut put it before the `if aliases:`
+  block, which made `features[0].id` return
+  empty; the fix was to move the short-circuit
+  to the right place. The lesson: every
+  short-circuit in a long function should sit
+  at the bottom, after every other block has
+  had a chance to populate the payload.
+- The list renderer strips the parent
+  component on `[*]` recursion so `a[*].id`
+  resolves to the `id` of each list element,
+  the way `jq -r '.foo[*].id'` does. The first
+  cut did not strip the parent; `a[*].id`
+  rendered as a JSON object per element. The
+  fix: split on `.` and recurse on the
+  remainder.
+- The "a.*" form is sugar for `a[*]`, and
+  the r169 path regex matches both. A path of
+  just `a[*]` (no sub-key) renders the whole
+  list, one element per line, the way
+  `jq -r '.foo[*]'` does.
+- A path that resolves to a list is rendered
+  as one value per line; a path that resolves
+  to a dict is rendered as a JSON object on
+  one line. The "list of dicts at `a[*].id`"
+  test expected `x\ny`; the first cut rendered
+  `{"id": "x"}\n{"id": "y"}` because the
+  renderer was not descending into the dict.
+  The fix was the parent-strip + recurse
+  refactor.

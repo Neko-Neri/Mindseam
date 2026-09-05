@@ -6371,7 +6371,163 @@ _FEATURE_CATALOG = (
     {"id": "info-features", "since": "r167",
      "summary": "info --features machine-readable feature catalog (id / since / summary / default)",
      "default": True},
+    {"id": "info-format", "since": "r169",
+     "summary": "info --format path1,path2 prints only the values at the given dot-paths (like docker inspect --format / jq -r)",
+     "default": True},
 )
+
+
+def _resolve_path(payload, path):
+    """Resolve a dot-path into a payload value, or ``None``.
+
+    Borrowed from ``docker inspect --format '{{.State.Running}}'`` /
+    ``kubectl get -o jsonpath='{.items[*].metadata.name}'`` /
+    Rust's ``serde_json::Value::pointer()`` / ``jq -r
+    '.foo.bar'``. The host passes a path string like
+    ``audit_summary.net`` or ``features[0].id`` and gets
+    back the resolved value. Missing paths return
+    ``None`` so the caller can render an empty
+    string without crashing; a host that wants to
+    probe "is this feature present?" reads the
+    field, sees ``None``, and decides.
+
+    Path syntax:
+
+    - ``foo.bar.baz`` — descend dict keys.
+    - ``foo[0]`` — index a list (negative indices
+      count from the end, the way Python's ``-1``
+      does).
+    - ``foo[*]`` — return the whole list. The
+      caller renders each element with its own
+      renderer.
+    - Bare ``foo`` — top-level key access.
+
+    A path component is a regex word (``\\w+``)
+    optionally followed by an indexer (``[N]`` /
+    ``[*]``), separated by a literal ``.``. A
+    standalone ``*`` segment is also accepted as a
+    whole-list shortcut (``a.*`` for ``a[*]``).
+    Anything else returns ``None``.
+    """
+    if not path:
+        return None
+    cur = payload
+    i = 0
+    while i < len(path):
+        m = re.match(r"^(\w+|\*)(?:\[(\d+|\*|-?\d+)\])?",
+                     path[i:])
+        if not m:
+            return None
+        key = m.group(1)
+        idx = m.group(2)
+        length = m.end()
+        # The whole-list shortcut ``a.*`` is sugar for
+        # ``a[*]``.
+        if key == "*":
+            if isinstance(cur, list):
+                return cur
+            return None
+        if not isinstance(cur, dict) or key not in cur:
+            return None
+        cur = cur[key]
+        if idx is not None:
+            if not isinstance(cur, list):
+                return None
+            if idx == "*":
+                # Stop the descent at this point;
+                # the caller will fan out across
+                # the list.
+                return cur
+            try:
+                n = int(idx)
+            except ValueError:
+                return None
+            if n < 0:
+                n = len(cur) + n
+            if n < 0 or n >= len(cur):
+                return None
+            cur = cur[n]
+        i += length
+        # Skip a single ``.`` separator between
+        # components; tolerate a missing dot (the
+        # last component has nothing after it).
+        if i < len(path) and path[i] == ".":
+            i += 1
+    return cur
+
+
+def _format_path(payload, path):
+    """Render one ``--format`` path to a string.
+
+    A scalar value (string / number / bool / None) is
+    rendered as ``str(value)`` (None as empty
+    string). A list (from a ``[*]`` indexer or a top-
+    level list value) is rendered as one value per
+    line, the way ``jq -r '.foo[*]'`` does. When
+    the path has a trailing indexer (``a[*].id``),
+    each list element is recursively rendered
+    against the indexer-stripped path so the
+    element's ``id`` key resolves; when there is
+    no indexer (``a[*]``), each element is rendered
+    as a value (``1``, ``true``, etc.).
+    """
+    val = _resolve_path(payload, path)
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    if isinstance(val, list):
+        # Strip the last indexer wherever it sits in
+        # the path: ``a[*].id`` → ``a.id``,
+        # ``a[*]`` → ``a``. Then strip the parent
+        # component so the recursion starts from
+        # each list element, the way ``jq -r
+        # '.foo[*].id'`` descends into each
+        # element's ``id`` field.
+        sub = re.sub(r"\[[^\]]+\]", "", path, count=1)
+        if sub != path and "." in sub:
+            sub_after_parent = sub.split(".", 1)[1]
+            return "\n".join(_format_path(v, sub_after_parent)
+                              for v in val)
+        # The path is just ``a[*]`` (or just
+        # ``a[N]``), with no nested key. Render
+        # each element as a value, the way
+        # ``jq -r '.foo[*]'`` does.
+        return "\n".join(_render_value(v) for v in val)
+    return _render_value(val)
+
+
+def _render_value(val):
+    """Render a single JSON-like value as a string."""
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    if isinstance(val, list):
+        return "\n".join(_render_value(v) for v in val)
+    if isinstance(val, dict):
+        return json.dumps(val, ensure_ascii=False)
+    return str(val)
+
+
+def _format_paths(payload, path_spec):
+    """Render a comma-separated list of paths.
+
+    Multiple paths print one result block per path,
+    separated by a blank line, the way
+    ``kubectl get -o jsonpath='{range ...}{end}'``
+    emits one block per item. The format is
+    stable: a host that greps the output knows the
+    layout does not change between runs.
+    """
+    paths = [p.strip() for p in path_spec.split(",") if p.strip()]
+    if not paths:
+        return ""
+    blocks = []
+    for p in paths:
+        rendered = _format_path(payload, p)
+        blocks.append(rendered if rendered else "")
+    return "\n".join(blocks)
 
 
 def mode_info(book, json_flag=False, warnings_only=False,
@@ -6380,7 +6536,7 @@ def mode_info(book, json_flag=False, warnings_only=False,
               workspace_id=False, audit_baseline=None,
               manifest=False, mtime=False, health=False,
               text_only=False, content_hash=False, changed=False,
-              features=False, aliases=False):
+              features=False, aliases=False, format_path=None):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -6768,19 +6924,18 @@ def mode_info(book, json_flag=False, warnings_only=False,
             # unstaged even when the index file is
             # unwritable.
             _write_info_state(current_hashes)
-    if features:
-        # r167: the feature catalog is the only block
-        # the controller ships that is *not* derived
-        # from runtime state; it is a hand-curated
-        # manifest of every flag, block, and gate the
-        # controller can do, indexed by stable id.
-        # A host that wants to ask "does this build
-        # support --content-hash?" reads one block
-        # instead of grepping the source. The list is
-        # always returned in the same order so a host
-        # can diff snapshots across controller
-        # versions.
-        payload["features"] = list(_FEATURE_CATALOG)
+    # r167: the feature catalog is the only block
+    # the controller ships that is *not* derived
+    # from runtime state; it is a hand-curated
+    # manifest of every flag, block, and gate the
+    # controller can do, indexed by stable id. The
+    # block is always populated (not gated on the
+    # ``--features`` flag) so ``info --format
+    # features[0].id`` works even when ``--features``
+    # is not requested; the flag only controls the
+    # text face and the JSON-shape presence
+    # optimisation.
+    payload["features"] = list(_FEATURE_CATALOG)
     if aliases:
         # r168: alias catalog. Built-in aliases are
         # always present; user-defined aliases come
@@ -6805,6 +6960,23 @@ def mode_info(book, json_flag=False, warnings_only=False,
                 for name, spec in aliases_map.items()
             },
         }
+    if format_path is not None:
+        # r169: --format "path1,path2" prints only the
+        # values at the given dot-paths, the way
+        # ``docker inspect --format '{{.State.Running}}'``
+        # does. The check sits *after* every other
+        # block has been populated so a host can
+        # ``--format features[0].id`` without
+        # requesting ``--features``; the
+        # ``features`` block is a hand-curated
+        # catalog and is always present, but the
+        # audit / lock / mtime blocks need their
+        # flags to be present in the payload. A
+        # missing path returns an empty string
+        # (not an error) so a probe can ask "is
+        # this feature present?" without crashing.
+        print(_format_paths(payload, format_path))
+        return 0
     if json_flag and not text_only:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -7806,6 +7978,8 @@ def main(argv=None):
         help="emit a features block listing every flag, block, and gate the controller can do, indexed by stable id and the round that introduced it (like the features list of `gh` / `rustup component list`)")
     info_p.add_argument("--aliases", dest="aliases", action="store_true",
         help="emit an aliases block listing built-in and user-defined short names; user aliases come from `.mindseam/aliases.json` (like the list output of `gh alias` / `git config` filter on `alias.`)")
+    info_p.add_argument("--format", dest="format_path", default=None,
+        help="render only the values at the given dot-paths (comma-separated), the way `docker inspect --format` or `kubectl get -o jsonpath` does. A missing path returns an empty string (not an error); a list indexer uses `[N]` or `[*]`")
 
     hist_p = sub.add_parser("history", help="tail the seam audit log")
     hist_p.add_argument("-n", "--limit", dest="limit", type=int, default=None,
@@ -7964,6 +8138,7 @@ def main(argv=None):
             changed=getattr(args, "changed", False),
             features=getattr(args, "features", False),
             aliases=getattr(args, "aliases", False),
+            format_path=getattr(args, "format_path", None),
         )
     if args.cmd == "history":
         return mode_history(args)

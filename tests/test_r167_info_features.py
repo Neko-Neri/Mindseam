@@ -142,6 +142,8 @@ class CatalogHelperTests(unittest.TestCase):
             "info-text",
             "info-content-hash",
             "info-changed",
+            "info-features",
+            "info-format",
         ):
             self.assertIn(needle, ids,
                           "catalog missing %r" % needle)
@@ -168,11 +170,18 @@ class FeaturesFlagTests(unittest.TestCase):
                 "", "## Open", "", "## Next", ""]
         path.write_text("\n".join(text), encoding="utf-8")
 
-    def test_no_features_block_when_omitted(self):
+    def test_features_block_always_present(self):
+        # r169 changed the contract: the features
+        # catalog is a hand-curated constant with no
+        # runtime cost, so it is always populated.
+        # The ``--features`` flag now controls only
+        # the text face; the JSON block is always
+        # there so ``info --format features[0].id``
+        # works even when the flag is omitted.
         self._ledger()
         r = _invoke(["info", "--json"], cwd=self.workspace)
         payload = json.loads(r.stdout)
-        self.assertNotIn("features", payload)
+        self.assertIn("features", payload)
 
     def test_features_block_appears_when_set(self):
         self._ledger()
