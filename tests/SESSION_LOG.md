@@ -1362,3 +1362,118 @@ exactly; the immediate retry passed 1381/1381).
   `kind` field is stable across the lifetime of
   the controller; a host grepping `detail` is
   fragile.
+
+## r166 — info content-hash and changed: detect content changes without trusting mtime
+
+The r161-r165 `info` report grew many orthogonal blocks:
+`audit_summary` (roll-up), `audit_manifest` (detector
+coverage), `workspace_id` (path + mtime fingerprint),
+`audit_baseline_diff` (drift), `lock_state` (advisory
+file lock), `workspace_files` (mtime + size per artefact),
+`health` (ok / degraded / unhealthy roll-up). r166
+closes the gap with two more flags that let a host
+detect "which file's content actually changed" without
+trusting mtime:
+
+1. `info --content-hash` borrows from `git rev-parse
+   --short` / `sha1sum` / `conda list --md5`: a
+   `content_hash` block carrying an 8-char SHA-1
+   prefix of each ledger artefact, the same shape as
+   `git`'s abbreviated object names. The collision
+   space is 2^32 and the chance of a same-day
+   collision on a single workspace is negligible, so
+   the host can use the prefix as a stable change
+   detector. Missing files get an empty string, the
+   way `git` reports a deleted blob.
+
+2. `info --changed` borrows from `git status
+   --porcelain` / `make -n`: a `changed` block listing
+   which ledger artefacts changed since the last call.
+   The previous hashes are persisted in
+   `.mindseam/info-state.json` and overwritten on
+   every call. A first run (no state file) is treated
+   as "all changed", the way `cargo` rebuilds the
+   registry index when its `.cargo/lock` file is
+   absent. The state write goes through the r164 write
+   lock so a concurrent `note` or `seam` cannot race
+   the state file. A locked state file is silently
+   skipped — the host still gets the `changed` map
+   for *this* call, the way `git status` reports
+   staged-vs-unstaged even when the index file is
+   unwritable.
+
+The text face of `content_hash` is `sha1sum`-shaped
+(one line per artefact, two columns). The text face of
+`changed` is `git status --porcelain`-shaped (an `M` /
+`-` column followed by the artefact name), so a shell
+pipeline can `awk '{print $1}'` to filter changed
+files.
+
+All blocks are additive. The r161-r165 surface keeps
+its existing shape. The two new flags compose freely
+with each other and with the r161-r165 flags.
+
+### Tests
+test_r166_info_content_hash_changed.py — 26 tests in
+five sub-suites:
+`HashHelperTests` (6: 8-char length, stability,
+content-change detection, missing-file returns empty,
+snapshot lists every artefact, empty for missing);
+`ContentHashFlagTests` (4: opt-in shape, hash changes
+when file content changes, text-face column, content
+block appears when set);
+`ChangedFlagTests` (5: opt-in shape, first run marks
+all changed, second run with no change marks all
+unchanged, ledger rewrite marks only that file, state
+file written, state file carries hashes, history
+file appearance marks it changed, text face
+"any_changed=False");
+`StateFileTests` (5: missing state, malformed state,
+non-dict state, hashes-must-be-dict, write under
+foreign lock is silent);
+`ComposeTests` (3: content_hash with mtime, content
+hash with health, changed with text).
+
+Suite after r166: 1407 passed, 0 failed. verify_suite
+9/9.
+
+### Gotchas
+- The first cut of `_write_info_state` called
+  `atomic_write_text` after acquiring the r164 lock.
+  `atomic_write_text` *also* acquires the r164 lock
+  internally, so the second acquire saw the foreign
+  lock (which was us) and refused with "locked by
+  another writer". The helper now writes the state
+  file directly using a single `O_CREAT | O_EXCL`
+  open + `os.replace`, the same way
+  `atomic_write_text` does internally but without
+  re-acquiring the lock. The lock is held for the
+  duration of the write so no other writer can race
+  the state file.
+- The `HashHelperTests` class did not `chdir` into
+  a clean tmpdir, so the `test_content_hash_snapshot
+  _empty_for_missing` test ran from whatever cwd the
+  prior test left behind — which sometimes had a
+  residual `WORKSPACE.md` from the previous
+  test_r166 run. The class now uses a `setUp` /
+  `tearDown` chdir pair, the same as the
+  `ContentHashBase` mixin.
+- The r69 doc-drift reverse test extracts every
+  ` --flag` token from SKILL.md lines that contain
+  `mindseam.py `. The first cut borrowed the literal
+  `git status --porcelain` and the r69 regex
+  extracted ` --porcelain` and refused because
+  `add_argument("--porcelain")` does not exist. The
+  fix is the same r159/r162/r165 trick: paraphrase
+  the borrower's option name (`porcelain output`).
+  The lesson: a borrowed phrase that uses a flag
+  with a leading dash in the docs trips r69, even
+  when the flag is a real borrower's flag — the
+  controller does not own the option.
+- The 8-char SHA-1 prefix is the same shape as
+  `git`'s abbreviated object names. A collision on a
+  single workspace is improbable (2^32 / 2^160), so
+  the prefix is a stable change detector. The full
+  SHA-1 is overkill for change detection; the 8-char
+  prefix is the same length as a `git` abbreviated
+  hash and the same shape.

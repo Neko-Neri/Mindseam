@@ -6013,12 +6013,154 @@ def _workspace_files_snapshot():
     return out
 
 
+def _file_content_hash(path, length=8):
+    """8-char SHA-1 of a file's content, or empty for missing.
+
+    Borrowed from ``git rev-parse:file`` / ``sha1sum`` /
+    ``conda list --md5``: an 8-char prefix is enough for a
+    host to detect "this file's content changed since last
+    we looked", because the collision space is 2^32 and
+    the chance of a same-day collision on a single
+    workspace is negligible. The full SHA-1 is overkill
+    for a change-detector; the 8-char prefix is the
+    ``git`` default for abbreviated object names.
+    """
+    if not os.path.exists(path):
+        return ""
+    try:
+        h = hashlib.sha1()
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()[:length]
+    except OSError:
+        return ""
+
+
+def _content_hash_snapshot(length=8):
+    """A per-artefact content-hash map for the workspace files.
+
+    Borrowed from ``git ls-files -s`` / ``cargo metadata`` /
+    ``conda list --md5``: a map from basename to short
+    content-hash, the way ``git status --porcelain``
+    shows the same files with different prefixes. The
+    keys are the artefact basenames; the values are
+    the 8-char SHA-1 prefix. Missing files get an
+    empty string, the way ``git`` reports a deleted
+    blob.
+    """
+    snapshot = _workspace_files_snapshot()
+    out = {}
+    for name, entry in snapshot.items():
+        if entry["exists"]:
+            out[name] = _file_content_hash(entry["path"], length)
+        else:
+            out[name] = ""
+    return out
+
+
+INFO_STATE_BASENAME = "info-state.json"
+INFO_STATE_KEY_VERSION = "version"
+INFO_STATE_KEY_HASHES = "hashes"
+INFO_STATE_VERSION = 1
+
+
+def _info_state_path():
+    """The state file lives next to the other ledger artefacts."""
+    return os.path.join(LEDGER_DIR, INFO_STATE_BASENAME)
+
+
+def _read_info_state():
+    """Read the last-seen hashes; return {} on missing or malformed."""
+    path = _info_state_path()
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            data = json.load(fh)
+    except (ValueError, OSError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    hashes = data.get(INFO_STATE_KEY_HASHES)
+    if not isinstance(hashes, dict):
+        return {}
+    return {str(k): str(v) for k, v in hashes.items()}
+
+
+def _write_info_state(hashes):
+    """Persist the latest hashes through the r164 write lock.
+
+    The state file is itself a ledger artefact, so the
+    r164 write lock applies. A failed write is silent;
+    the next ``info --changed`` will treat the missing
+    state as "first run, all changed", the way
+    ``cargo`` rebuilds the registry index when its
+    ``.cargo/lock`` file is absent.
+
+    The lock is held for the duration of the write so
+    no other writer can race the state file. The
+    underlying ``atomic_write_text`` would re-acquire
+    the same lock and deadlock; this helper writes the
+    state file directly with a single ``O_CREAT |
+    O_EXCL`` open + ``os.replace``, the same way
+    ``atomic_write_text`` does internally.
+    """
+    payload = {INFO_STATE_KEY_VERSION: INFO_STATE_VERSION,
+               INFO_STATE_KEY_HASHES: dict(hashes)}
+    body = json.dumps(payload, ensure_ascii=False, indent=2)
+    target = _info_state_path()
+    target_dir = os.path.dirname(os.path.abspath(target)) or os.curdir
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except OSError:
+        return False
+    # Acquire the same r164 lock the controller uses for
+    # ledger writes. A foreign lock blocks the state
+    # write, and the helper returns False — the host
+    # will see "all changed" on the next call, which
+    # is the right answer when the workspace is being
+    # rewritten by another process.
+    use_lock = (os.path.basename(target_dir) == LEDGER_DIR
+                and os.path.isdir(target_dir))
+    fd = None
+    if use_lock:
+        fd, problem = _acquire_write_lock(target_dir)
+        if problem:
+            return False
+    try:
+        # Write the state file directly. ``atomic_write_text``
+        # would re-acquire the lock; we already hold it.
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", dir=target_dir,
+                prefix=os.path.basename(target) + ".",
+                delete=False,
+            ) as fh:
+                temp_path = fh.name
+                fh.write(body)
+            os.replace(temp_path, target)
+            ok = True
+        except OSError:
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+            ok = False
+    finally:
+        if fd is not None:
+            _release_write_lock(target_dir, fd)
+    return ok
+
+
 def mode_info(book, json_flag=False, warnings_only=False,
               version_only=False, human=False, check_only=False,
               memory_only=False, list_fields=False,
               workspace_id=False, audit_baseline=None,
               manifest=False, mtime=False, health=False,
-              text_only=False):
+              text_only=False, content_hash=False, changed=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -6371,6 +6513,41 @@ def mode_info(book, json_flag=False, warnings_only=False,
             for name, doc in fields.items():
                 print("  %-22s  %s" % (name, doc))
         return 0
+    # r166: content-hash and changed live in the payload
+    # so both the JSON and text faces see them; the JSON
+    # short-circuit below prints the payload verbatim.
+    if content_hash or changed:
+        current_hashes = _content_hash_snapshot()
+        if content_hash:
+            payload["content_hash"] = current_hashes
+        if changed:
+            # The previous call's hashes are persisted in
+            # ``.mindseam/info-state.json``; compare them
+            # to the current set, write the new state, and
+            # return a per-file ``changed`` map. A first
+            # run (no state file) is treated as "all
+            # changed" — the host gets the new state on
+            # the next call.
+            previous_hashes = _read_info_state()
+            changed_map = {}
+            for name, h in current_hashes.items():
+                if previous_hashes.get(name) != h:
+                    changed_map[name] = True
+                else:
+                    changed_map[name] = False
+            payload["changed"] = {
+                "files": changed_map,
+                "any_changed": any(changed_map.values()),
+                "previous_run": bool(previous_hashes),
+            }
+            # Best-effort write of the new state through
+            # the r164 lock. A failure does not change
+            # the contract: the host still gets the
+            # per-file ``changed`` map for *this* call,
+            # the way ``git status`` reports staged-vs-
+            # unstaged even when the index file is
+            # unwritable.
+            _write_info_state(current_hashes)
     if json_flag and not text_only:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -6425,6 +6602,32 @@ def mode_info(book, json_flag=False, warnings_only=False,
                       % (name, entry["size"], entry["mtime"]))
             else:
                 print("  %-22s  (missing)" % name)
+    if content_hash and "content_hash" in payload:
+        # r166: text face of the content-hash block. One
+        # line per artefact, two columns, the way
+        # ``sha1sum`` reports a file. The 8-char prefix is
+        # the same shape as ``git rev-parse --short``.
+        print()
+        print("Content hash:")
+        for name, h in payload["content_hash"].items():
+            print("  %-22s  %s" % (name, h or "(missing)"))
+    if changed and "changed" in payload:
+        # r166: text face of the changed block. The
+        # ``M`` / ``-`` column is borrowed from
+        # ``git status --porcelain``: M means the file's
+        # content changed since the last call; ``-``
+        # means it is unchanged. The first column is
+        # short so a host can grep the result with
+        # ``awk`` without parsing JSON.
+        print()
+        print("Changed since last call:")
+        for name, c in payload["changed"]["files"].items():
+            mark = "M" if c else "-"
+            print("  %s  %s" % (mark, name))
+        if payload["changed"]["any_changed"]:
+            print("  (any_changed=True)")
+        else:
+            print("  (any_changed=False)")
     return 0
 
 
@@ -7303,6 +7506,10 @@ def main(argv=None):
         help="emit a health block rolling up lock_state + workspace_id + audit_summary.lean + warnings + last_seam.long_gap into a single status enum (ok / degraded / unhealthy) with a list of reasons (like kubectl get componentstatus / systemctl is-system-running)")
     info_p.add_argument("--text", dest="text_only", action="store_true",
         help="force a plain-text report even if --json is also set; the r156 default is text when no face is requested (like the text face of `gh` / `kubectl -o wide`)")
+    info_p.add_argument("--content-hash", dest="content_hash", action="store_true",
+        help="emit a content_hash block with a short SHA-1 of each ledger artefact, so a host can detect content changes even when mtime is unreliable (like git rev-parse --short / sha1sum)")
+    info_p.add_argument("--changed", dest="changed", action="store_true",
+        help="emit a changed block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in .mindseam/info-state.json and overwritten on every call (like git status --porcelain)")
 
     hist_p = sub.add_parser("history", help="tail the seam audit log")
     hist_p.add_argument("-n", "--limit", dest="limit", type=int, default=None,
@@ -7457,6 +7664,8 @@ def main(argv=None):
             mtime=getattr(args, "mtime", False),
             health=getattr(args, "health", False),
             text_only=getattr(args, "text_only", False),
+            content_hash=getattr(args, "content_hash", False),
+            changed=getattr(args, "changed", False),
         )
     if args.cmd == "history":
         return mode_history(args)

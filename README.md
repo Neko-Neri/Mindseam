@@ -136,6 +136,8 @@ the task workspace as the current directory.
 | `info --mtime` | Carry a `workspace_files` block listing each ledger artefact (WORKSPACE.md / history.json / metacognition.json / skillbook.md) with mtime, size, presence (like `find -printf` / `stat`) |
 | `info --health` | Carry a `health` block rolling up `lock_state` + `audit_summary.lean` + `warnings` + `long_gap` into a single `ok` / `degraded` / `unhealthy` status with a `reasons` list (like `kubectl get componentstatus` / `systemctl is-system-running`) |
 | `info --text` | Force a plain-text report even if `--json` is also set (like the text face of `gh` / `kubectl -o wide`) |
+| `info --content-hash` | Emit a `content_hash` block with a short SHA-1 of each ledger artefact, so a host can detect content changes even when mtime is unreliable (like `git rev-parse --short` / `sha1sum`) |
+| `info --changed` | Emit a `changed` block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in `.mindseam/info-state.json` and overwritten on every call (like the porcelain output of `git status`) |
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |
 | `audit` | Report tagged ledger waste, biggest cut first (report only, borrowed from ponytail) |

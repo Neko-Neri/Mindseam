@@ -130,6 +130,8 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `info --mtime` | 附带 `workspace_files` 块，列出每个 ledger 工件（WORKSPACE.md / history.json / metacognition.json / skillbook.md）的 mtime、size、exists（类似 `find -printf` / `stat`） |
 | `info --health` | 附带 `health` 块，把 `lock_state` + `audit_summary.lean` + `warnings` + `long_gap` 收口为单个 `ok` / `degraded` / `unhealthy` 状态加 `reasons` 列表（类似 `kubectl get componentstatus` / `systemctl is-system-running`） |
 | `info --text` | 强制纯文本输出，即使同时传了 `--json`（类似 `gh` 的 text 形态 / `kubectl -o wide`） |
+| `info --content-hash` | 附带 `content_hash` 块，给每个 ledger 工件一个短 SHA-1，让 host 在 mtime 不靠谱时也能检测内容变化（类似 `git rev-parse --short` / `sha1sum`） |
+| `info --changed` | 附带 `changed` 块，列出相对上次 info 调用哪些 ledger 工件变化了；上次的哈希持久化在 `.mindseam/info-state.json`，每次调用覆盖（类似 `git status` 的 porcelain 输出） |
 | `history` | 查看 seam 审计日志（类似 `git log`） |
 | `history -n N` | 仅打印最近 N 条记录 |
 | `history --json` | 机器可读审计日志尾 |
