@@ -1477,3 +1477,103 @@ Suite after r166: 1407 passed, 0 failed. verify_suite
   SHA-1 is overkill for change detection; the 8-char
   prefix is the same length as a `git` abbreviated
   hash and the same shape.
+
+## r167 — info features catalog: machine-readable capability manifest
+
+The r161-r166 `info` report grew many orthogonal
+blocks. r167 closes the gap with a machine-readable
+catalog of every flag, block, and gate the controller
+can do, indexed by a stable id. Borrowed from
+`gh features list` (which emits `name / state /
+description` JSON) / `rustup component list` /
+OpenAPI's `info.description`: a single source of
+truth for what the controller ships, in a shape a
+host can grep or pipe through `jq` without parsing
+prose.
+
+The catalog is the only `info` block the controller
+ships that is *not* derived from runtime state. It is
+a hand-curated manifest: every entry has an `id`
+(stable kebab-case), a `since` round (so a host can
+ask "was --content-hash there in r165?"), a
+`summary` (one-line human description), and a
+`default` boolean (reserved for future opt-in
+capability; every feature is on by default today).
+
+The catalog also doubles as release notes: the
+`since` round is the round that introduced the
+feature, the way `gh features list` shows the date
+a feature reached general availability. A host
+that diffs two controller builds' `features`
+arrays sees exactly which capabilities the new
+build added — `jq '.features | map(.id)' < old.json
+> old-ids` vs. the same for the new build.
+
+The catalog currently has 28 entries spanning
+r156 through r167, covering the r156 subcommand
+surface (`audit` / `history` / `seam` / `note` /
+`ship` / `info` / `discover` / `skillbook` / `resume`),
+the r158 report-face contract, the r159-r162
+audit surface (tagged findings, intensity ladder,
+facets, evidence, tag projection, window, gate,
+baseline), and the r161-r167 `info` surface
+(audit_summary, workspace_id, baseline diff,
+manifest, lock_state, mtime, health, text,
+content-hash, changed, features).
+
+### Tests
+test_r167_info_features.py — 20 tests in three
+sub-suites:
+`CatalogHelperTests` (8: catalog is a tuple, has the
+four keys, ids unique, ids kebab-case, since round
+format, summary non-empty, default is bool, all 28
+known features present);
+`FeaturesFlagTests` (5: opt-in shape, full block
+appears when set, block equals the catalog, ids
+present in block, text face lists every id);
+`CatalogCoverageTests` (5: audit block listed,
+history block listed, info block listed, r158
+report-face single entry, write-lock listed).
+
+Suite after r167: 1427 passed, 0 failed. verify_suite
+9/9 (one full-regression run had the pre-existing
+r161 timing flake in
+`test_info_human_renders_seconds_when_below_minute`;
+immediate retry passed 1427/1427).
+
+### Gotchas
+- The first cut of the catalog had 28 entries
+  outside the controller source, in a separate
+  `_FEATURE_CATALOG` constant. The catalog needs to
+  be a tuple (not a list) so the JSON block can
+  compare with `==` across runs; lists compare by
+  identity in older Python.
+- The catalog must include its own entry
+  (`info-features`, since r167) so a host can ask
+  "does this build support `info --features`?" by
+  looking up the id in the catalog. The first cut
+  missed this self-reference and the test
+  `test_info_block_is_listed` failed until the
+  entry was added.
+- The `FeaturesFlagTests._ledger` helper did not
+  accept keyword arguments (the r163 etc. fixtures
+  do). The first cut called
+  `_ledger(verified=(...))` and crashed with a
+  `TypeError`. The helper now takes `verified=()` and
+  threads it through, the same as the r161-r166
+  fixtures.
+- The catalog uses kebab-case ids
+  (`info-workspace-id`, `audit-baseline`) so a host
+  can grep for the literal id without quoting
+  underscores. Round tags (`r156`, `r163`, `r167`)
+  are the same shape the SESSION_LOG uses, so a
+  single `since` lookup is enough to find the
+  changelog entry.
+- The `default` field is `True` for every entry
+  today. The field is reserved for future opt-in
+  capability: an experimental feature the team
+  wants to gate behind a flag (e.g. `default:
+  False` for a new tag) will surface here without
+  a new round, the way `gh features list` shows
+  `state: alpha` / `beta` / `ga` without renaming
+  the subcommand.

@@ -138,6 +138,7 @@ the task workspace as the current directory.
 | `info --text` | Force a plain-text report even if `--json` is also set (like the text face of `gh` / `kubectl -o wide`) |
 | `info --content-hash` | Emit a `content_hash` block with a short SHA-1 of each ledger artefact, so a host can detect content changes even when mtime is unreliable (like `git rev-parse --short` / `sha1sum`) |
 | `info --changed` | Emit a `changed` block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in `.mindseam/info-state.json` and overwritten on every call (like the porcelain output of `git status`) |
+| `info --features` | Emit a `features` block listing every flag, block, and gate the controller can do, indexed by stable id and the round that introduced it (like the features list of `gh` / `rustup component list`) |
 | `discover` | List modules / domains selected for the next pass |
 | `discover --json` | Same, machine-readable JSON |
 | `audit` | Report tagged ledger waste, biggest cut first (report only, borrowed from ponytail) |

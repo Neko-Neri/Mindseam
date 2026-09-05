@@ -260,6 +260,7 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py info --text                           # force a plain-text report even if --json is also set (like the text face of `gh` / `kubectl -o wide`)
 <python-command> <skill-root>/scripts/mindseam.py info --content-hash                  # emit a content_hash block with a short SHA-1 of each ledger artefact, so a host can detect content changes even when mtime is unreliable (like git rev-parse short / sha1sum)
 <python-command> <skill-root>/scripts/mindseam.py info --changed                       # emit a changed block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in `.mindseam/info-state.json` and overwritten on every call (like the porcelain output of `git status`)
+<python-command> <skill-root>/scripts/mindseam.py info --features                      # emit a features block listing every flag, block, and gate the controller can do, indexed by stable id and the round that introduced it (like the features list of `gh` / `rustup component list`)
 <python-command> <skill-root>/scripts/mindseam.py history                                    # tail the seam audit log (like git log)
 <python-command> <skill-root>/scripts/mindseam.py history --head 5                                # first 5 entries only (like head -n 5)
 <python-command> <skill-root>/scripts/mindseam.py history --tail 5                                # last 5 entries only (like tail -n 5, alias of -n)

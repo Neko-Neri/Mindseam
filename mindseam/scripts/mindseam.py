@@ -6155,12 +6155,116 @@ def _write_info_state(hashes):
     return ok
 
 
+# r167: machine-readable feature catalog. Borrowed from
+# ``gh features list`` (which emits ``name / state / description``
+# JSON) / ``rustup component list`` / OpenAPI's
+# ``info.description``: a single source of truth for what
+# the controller can do, indexed by a stable id. A host
+# that wants to know "does this build support
+# --content-hash?" reads one block instead of grepping
+# the source. The ids are kebab-case so a host can grep
+# for ``info-features`` in a script. ``default`` is True
+# for every feature today; the field is reserved for
+# future opt-in capability (e.g. an experimental tag
+# that the team wants to gate behind a flag).
+_FEATURE_CATALOG = (
+    {"id": "info-warnings-only", "since": "r156",
+     "summary": "Print only the warning lines from the info report",
+     "default": True},
+    {"id": "info-version", "since": "r156",
+     "summary": "Print the controller version on its own line",
+     "default": True},
+    {"id": "info-human", "since": "r156",
+     "summary": "Render time spans in human-readable units (2 minutes ago)",
+     "default": True},
+    {"id": "info-check", "since": "r156",
+     "summary": "Report ledger health issues without repairing",
+     "default": True},
+    {"id": "info-memory", "since": "r156",
+     "summary": "Report workspace disk size in human units",
+     "default": True},
+    {"id": "info-list-fields", "since": "r156",
+     "summary": "Describe the ledger schema in human form",
+     "default": True},
+    {"id": "audit-tagged-findings", "since": "r156",
+     "summary": "audit subcommand: one tagged line per finding, ranked",
+     "default": True},
+    {"id": "audit-intensity-ladder", "since": "r156",
+     "summary": "audit --intensity lite / full / off ladder with MINDSEAM_INTENSITY env",
+     "default": True},
+    {"id": "history-filter", "since": "r157",
+     "summary": "history --filter KEY=VALUE repeatable projection",
+     "default": True},
+    {"id": "history-human", "since": "r157",
+     "summary": "history --human relative-date renderer",
+     "default": True},
+    {"id": "report-json-faces", "since": "r158",
+     "summary": "seam / resume / ship / info / history / discover carry a --json face",
+     "default": True},
+    {"id": "audit-facets", "since": "r159",
+     "summary": "audit goal-stale / next-stall / core-drift facet tags",
+     "default": True},
+    {"id": "audit-tag-projection", "since": "r159",
+     "summary": "audit --tag TAG[,TAG] projection that refuses unknown tags",
+     "default": True},
+    {"id": "audit-evidence-link", "since": "r160",
+     "summary": "Every audit finding carries an evidence block (row indices, normalised text, seam indices)",
+     "default": True},
+    {"id": "audit-window-at", "since": "r161",
+     "summary": "audit --since / --until / --at time window and single-seam audit",
+     "default": True},
+    {"id": "audit-gate-enum", "since": "r161",
+     "summary": "audit --json carries a gate enum (clean / finding / gated)",
+     "default": True},
+    {"id": "info-audit-summary", "since": "r161",
+     "summary": "info --json carries an audit_summary block (lean, net, by_tag, top tag)",
+     "default": True},
+    {"id": "audit-baseline", "since": "r162",
+     "summary": "audit --baseline / --baseline-write so the gate only fires on new findings",
+     "default": True},
+    {"id": "info-workspace-id", "since": "r163",
+     "summary": "info --json workspace_id (path + ledger mtime SHA-1 fingerprint)",
+     "default": True},
+    {"id": "info-audit-baseline-diff", "since": "r163",
+     "summary": "info --audit-baseline drift block (fresh / baselined / drift)",
+     "default": True},
+    {"id": "info-audit-manifest", "since": "r163",
+     "summary": "info --manifest per-tag detector coverage map",
+     "default": True},
+    {"id": "write-lock", "since": "r164",
+     "summary": ".mindseam/write.lock advisory file lock preventing concurrent note / seam corruption",
+     "default": True},
+    {"id": "info-lock-state", "since": "r164",
+     "summary": "info --json lock_state block (free / held_by_us / held_by_other)",
+     "default": True},
+    {"id": "info-mtime", "since": "r165",
+     "summary": "info --mtime workspace_files block (mtime, size, exists per artefact)",
+     "default": True},
+    {"id": "info-health", "since": "r165",
+     "summary": "info --health roll-up (ok / degraded / unhealthy with reasons list)",
+     "default": True},
+    {"id": "info-text", "since": "r165",
+     "summary": "info --text force plain text even when --json is also set",
+     "default": True},
+    {"id": "info-content-hash", "since": "r166",
+     "summary": "info --content-hash 8-char SHA-1 of each ledger artefact",
+     "default": True},
+    {"id": "info-changed", "since": "r166",
+     "summary": "info --changed per-file change map persisted to .mindseam/info-state.json",
+     "default": True},
+    {"id": "info-features", "since": "r167",
+     "summary": "info --features machine-readable feature catalog (id / since / summary / default)",
+     "default": True},
+)
+
+
 def mode_info(book, json_flag=False, warnings_only=False,
               version_only=False, human=False, check_only=False,
               memory_only=False, list_fields=False,
               workspace_id=False, audit_baseline=None,
               manifest=False, mtime=False, health=False,
-              text_only=False, content_hash=False, changed=False):
+              text_only=False, content_hash=False, changed=False,
+              features=False):
     """Print or emit a digest of the workspace state.
 
     Borrowed from the ``gh repo view`` / ``kubectl cluster-info`` /
@@ -6548,6 +6652,19 @@ def mode_info(book, json_flag=False, warnings_only=False,
             # unstaged even when the index file is
             # unwritable.
             _write_info_state(current_hashes)
+    if features:
+        # r167: the feature catalog is the only block
+        # the controller ships that is *not* derived
+        # from runtime state; it is a hand-curated
+        # manifest of every flag, block, and gate the
+        # controller can do, indexed by stable id.
+        # A host that wants to ask "does this build
+        # support --content-hash?" reads one block
+        # instead of grepping the source. The list is
+        # always returned in the same order so a host
+        # can diff snapshots across controller
+        # versions.
+        payload["features"] = list(_FEATURE_CATALOG)
     if json_flag and not text_only:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
@@ -6628,6 +6745,18 @@ def mode_info(book, json_flag=False, warnings_only=False,
             print("  (any_changed=True)")
         else:
             print("  (any_changed=False)")
+    if features and "features" in payload:
+        # r167: text face of the features block. The
+        # columns are short so a host can grep
+        # ``info-features`` or pipe through ``awk`` to
+        # pick ids by ``since`` round.
+        print()
+        print("Features:")
+        for entry in payload["features"]:
+            mark = "+" if entry["default"] else "-"
+            print("  %s  %-26s  %-7s  %s"
+                  % (mark, entry["id"], entry["since"],
+                     entry["summary"]))
     return 0
 
 
@@ -7510,6 +7639,8 @@ def main(argv=None):
         help="emit a content_hash block with a short SHA-1 of each ledger artefact, so a host can detect content changes even when mtime is unreliable (like git rev-parse --short / sha1sum)")
     info_p.add_argument("--changed", dest="changed", action="store_true",
         help="emit a changed block listing which ledger artefacts changed since the last info call; the previous hashes are persisted in .mindseam/info-state.json and overwritten on every call (like git status --porcelain)")
+    info_p.add_argument("--features", dest="features", action="store_true",
+        help="emit a features block listing every flag, block, and gate the controller can do, indexed by stable id and the round that introduced it (like the features list of `gh` / `rustup component list`)")
 
     hist_p = sub.add_parser("history", help="tail the seam audit log")
     hist_p.add_argument("-n", "--limit", dest="limit", type=int, default=None,
@@ -7666,6 +7797,7 @@ def main(argv=None):
             text_only=getattr(args, "text_only", False),
             content_hash=getattr(args, "content_hash", False),
             changed=getattr(args, "changed", False),
+            features=getattr(args, "features", False),
         )
     if args.cmd == "history":
         return mode_history(args)

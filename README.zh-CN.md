@@ -132,6 +132,7 @@ loop 三种 pass，以及可选控制器负责记录长任务状态而不负责�
 | `info --text` | 强制纯文本输出，即使同时传了 `--json`（类似 `gh` 的 text 形态 / `kubectl -o wide`） |
 | `info --content-hash` | 附带 `content_hash` 块，给每个 ledger 工件一个短 SHA-1，让 host 在 mtime 不靠谱时也能检测内容变化（类似 `git rev-parse --short` / `sha1sum`） |
 | `info --changed` | 附带 `changed` 块，列出相对上次 info 调用哪些 ledger 工件变化了；上次的哈希持久化在 `.mindseam/info-state.json`，每次调用覆盖（类似 `git status` 的 porcelain 输出） |
+| `info --features` | 附带 `features` 块，列出 controller 全部能做的 flag / block / gate，按稳定 id 索引并标注引入轮次（类似 `gh` 的 features list / `rustup component list`） |
 | `history` | 查看 seam 审计日志（类似 `git log`） |
 | `history -n N` | 仅打印最近 N 条记录 |
 | `history --json` | 机器可读审计日志尾 |
