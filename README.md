@@ -129,7 +129,7 @@ the task workspace as the current directory.
 | `skillbook` | Print recurring patterns extracted from session history |
 | `skillbook --json` | Same, machine-readable JSON |
 | `info` | Print what the suite has learned about this workspace |
-| `info --json` | Same, machine-readable JSON; carries an `audit_summary` block (lean, net, by_tag, top tag) so a host reads the audit roll-up alongside the rest of the workspace health |
+| `info --json` | Same, machine-readable JSON; carries an `audit_summary` block (lean, net, by_tag, top tag) and a `lock_state` block so a host reads the audit roll-up alongside the rest of the workspace health |
 | `info --workspace-id` | Emit a 16-hex workspace fingerprint (path + ledger mtime) so a host can verify it is in the right workspace (like `direnv stdlib` / `poetry env info`) |
 | `info --audit-baseline <path>` | Carry an `audit_baseline_diff` block (fresh / baselined / drift) using the same baseline file as `audit --baseline` (like `flutter analyze --baseline`) |
 | `info --manifest` | Carry an `audit_manifest` block listing every tag the audit can fire, including tags that did not fire (seen-but-clean = 0) so a host can verify the detector set actually ran |

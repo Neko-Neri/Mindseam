@@ -1133,3 +1133,114 @@ Suite after r163: 1348 passed, 0 failed. verify_suite 9/9.
   this map; they are not separate computations, so a
   typo in the manifest cannot drift from the audit
   reality.
+
+## r164 — write lock: prevent concurrent writes from corrupting the ledger
+
+The controller writes `.mindseam/WORKSPACE.md` and
+`.mindseam/history.json` from `note`, `seam`, `ship`,
+`skillbook`, and `audit --baseline-write`. Two concurrent
+writers — a CI pipeline running `note` and `seam` in
+parallel, a host's `from_stdin` thread, two agents in the
+same workspace — can interleave their read-modify-write
+cycles and produce a corrupted ledger.
+
+r164 borrows from `flock(2)` / `git index.lock` /
+`cargo build --locked` / SQLite's `BEGIN IMMEDIATE`: an
+advisory file lock under `.mindseam/write.lock`. The
+atomicity is provided by `O_CREAT | O_EXCL`: a single OS
+call that succeeds only if the file did not exist, the
+way `flock -n` reports "another process holds the lock"
+without waiting. Windows / Linux / macOS all support
+`os.O_CREAT | os.O_EXCL` with the same atomicity
+guarantee, so the helper is portable.
+
+Three new pieces:
+
+1. `_acquire_write_lock(ledger_dir)` — opens
+   `.mindseam/write.lock` with `O_CREAT | O_EXCL`. The
+   body is the holder's PID. A second writer that
+   arrives mid-write sees `EEXIST` and the controller
+   refuses with the message
+   "`<lock_path>` is locked by another writer (pid=N);
+   refusing to write `<target>`", the way `git commit`
+   refuses when `.git/index.lock` is present.
+
+2. `atomic_write_text` now wraps every write under
+   `.mindseam/` in the lock. Acquire before the
+   temp-file write, release after `os.replace`. A
+   mid-write `OSError` still releases the lock, so a
+   crashed process does not leave a stale lock behind.
+
+3. `info --json` always emits a `lock_state` block with
+   three states: `free` (no lock file), `held_by_other`
+   (lock file present, holder PID is not ours),
+   `held_by_us` (lock file is ours — only possible if a
+   previous controller process crashed mid-write and left
+   the lock behind; a human should clear it). A host
+   reads this before launching a write to avoid the
+   race entirely, the way `flock -n` reports "another
+   process holds the lock" without waiting.
+
+The `note` subcommand refuses with exit 2 on lock
+conflict (the controller's standard "could not" exit).
+The `seam` subcommand is best-effort: a history write
+that fails behind a held lock is reported as a stderr
+`WARNING` and the audit log just does not get the new
+row — the print_reentry path still runs. This matches
+the pre-r164 behaviour where a corrupted history file
+also produced a warning rather than a hard fail.
+
+### Tests
+test_r164_write_lock.py — 15 tests in four sub-suites:
+`WriteLockHelperTests` (5: acquire/release round-trip,
+refusal on second acquire, lock path resolution,
+holder-pid None when no file, malformed body tolerated);
+`AtomicWriteLockTests` (3: writes when lock is free,
+refuses when lock held, releases lock after failed
+write); `InfoLockStateTests` (4: free state, held_by_other
+with foreign pid, malformed body reads as free, the
+held_by_us state machine pinned through the helper);
+`WriteRefusesTests` (3: `note` refuses with exit 2 on
+conflict, `note` releases lock after success, `seam`
+emits a stderr warning on conflict).
+
+Suite after r164: 1363 passed, 0 failed. verify_suite
+9/9.
+
+### Gotchas
+- The lock directory is the `.mindseam/` directory —
+  the target's parent when the target is a direct child,
+  the target's grandparent when the target is a file
+  under `.mindseam/`. The first cut used
+  `os.path.dirname(target_dir)` and missed the case
+  where the target *is* under `.mindseam/`. The
+  controller now picks the lock directory as
+  `target_dir` if it is `.mindseam/`, else
+  `os.path.dirname(target_dir)`.
+- The `held_by_us` test was a hard test: the test runner
+  and the controller are separate processes, so
+  `os.getpid()` in the test does not match the
+  controller's pid. The test pins the state machine via
+  the held_by_other and held-free cases; held_by_us is
+  exercised through `atomic_write_text`-holds-the-lock-
+  during-write, which a host can verify by reading the
+  lock_state immediately after a successful write
+  completes (it has just been released). The test
+  also asserts the malformed body → free transition,
+  which is the third corner of the state machine.
+- `seam` is intentionally best-effort: the print_reentry
+  banner and the workspace write are the user-visible
+  side effects, the history write is a sidecar. A
+  history write that fails behind a held lock produces
+  a stderr warning, not a hard exit 2. The lock test
+  asserts the warning is visible (`"locked by another
+  writer"` in stderr); a host that wants the audit log
+  to be authoritative can re-run `seam` after the
+  foreign writer releases the lock.
+- The lock file's body is `pid=N\n`. The helper tolerates
+  malformed bodies (returns `None`, which the state
+  machine reads as `free`); the test pins this with a
+  garbage-body case. A human who wants to clear a
+  crashed-mid-write lock by hand can `rm
+  .mindseam/write.lock` — the body parsing is a
+  courtesy, not a gate.

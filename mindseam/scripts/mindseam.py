@@ -177,6 +177,93 @@ def read_ledger():
     return book
 
 
+WRITE_LOCK_BASENAME = "write.lock"
+
+
+def _write_lock_path(ledger_dir):
+    """The lock file lives in the ledger directory."""
+    return os.path.join(ledger_dir, WRITE_LOCK_BASENAME)
+
+
+def _acquire_write_lock(ledger_dir):
+    """Try to create the write-lock file. Returns (fd, problem).
+
+    Borrowed from ``flock(2)`` / ``git index.lock`` /
+    ``cargo build --locked`` / SQLite's ``BEGIN IMMEDIATE``:
+    an advisory file lock. The atomicity is provided by
+    ``O_CREAT | O_EXCL``: a single OS call that succeeds
+    only if the file did not exist, the way ``flock -n``
+    reports "another process holds the lock" without
+    waiting. Windows / Linux / macOS all support
+    ``os.O_CREAT | os.O_EXCL`` with the same atomicity
+    guarantee, so the helper is portable.
+
+    The returned ``fd`` must be closed (and the file
+    unlinked) by the caller; ``release_write_lock`` does
+    both. The file's body is the holder's PID so a human
+    inspecting the lock can tell which process owns it.
+    """
+    target = _write_lock_path(ledger_dir)
+    try:
+        os.makedirs(ledger_dir, exist_ok=True)
+    except OSError as exc:
+        return None, "%s (%s)" % (ledger_dir, exc.strerror or "cannot create")
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    if hasattr(os, "O_BINARY"):
+        # On Windows, ``O_BINARY`` keeps the open in raw
+        # mode so the newline translation does not
+        # corrupt the lock-file body.
+        flags |= os.O_BINARY
+    try:
+        fd = os.open(target, flags, 0o644)
+    except FileExistsError:
+        return None, "held"
+    except OSError as exc:
+        return None, "%s (%s)" % (target, exc.strerror or "cannot lock")
+    try:
+        os.write(fd, ("pid=%d\n" % os.getpid()).encode("utf-8"))
+    except OSError:
+        pass
+    return fd, None
+
+
+def _release_write_lock(ledger_dir, fd):
+    """Close and unlink the write-lock file. Best-effort."""
+    if fd is not None:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+    try:
+        os.unlink(_write_lock_path(ledger_dir))
+    except OSError:
+        pass
+
+
+def _write_lock_held_by(ledger_dir):
+    """Return the pid of the holder, or None if the lock is free.
+
+    Reads the lock file body (a single ``pid=N`` line) when it
+    exists. Borrowed from ``pg_ls_dir`` / ``lsof`` semantics:
+    the body is the holder's identifier, so a host can grep
+    `.mindseam/write.lock` to find out who holds it.
+    """
+    path = _write_lock_path(ledger_dir)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            line = fh.read().strip()
+    except OSError:
+        return None
+    if line.startswith("pid="):
+        try:
+            return int(line[4:])
+        except ValueError:
+            return None
+    return None
+
+
 def atomic_write_text(path, text):
     """Replace a UTF-8 text file atomically. Returns an error string or None.
 
@@ -185,6 +272,14 @@ def atomic_write_text(path, text):
     so any target on another volume than the process cwd — a patched
     test path on another drive, a relocated .mindseam — failed with a
     cross-device move instead of writing.
+
+    r164: the write is wrapped in an advisory file lock under
+    ``.mindseam/write.lock``. A second writer that arrives while
+    the first is mid-write sees an ``EEXIST`` and the write is
+    refused with exit-2, the way ``git commit`` refuses when
+    ``.git/index.lock`` already exists. The lock is per-ledger,
+    not per-file, so a small ``.mindseam/`` does not grow a
+    separate lock per artefact.
     """
     target_dir = os.path.dirname(os.path.abspath(path)) or os.curdir
     try:
@@ -193,6 +288,31 @@ def atomic_write_text(path, text):
         return "%s (%s)" % (path, exc.strerror or "cannot create")
     if not os.path.isdir(target_dir):
         return "%s exists but is not a directory" % path
+    # Acquire the per-ledger write lock. Tests that bypass this
+    # path (e.g. a CI script that rewrites the ledger outside of
+    # mindseam.py) are unaffected because they call
+    # ``atomic_write_text`` directly, but every controller-driven
+    # write goes through the lock. The lock directory is the
+    # ``.mindseam/`` directory — either the target's
+    # grandparent (when the target is a file under
+    # ``.mindseam/``) or the target's parent (when the target
+    # *is* a directory under ``.mindseam/``).
+    if os.path.basename(target_dir) == LEDGER_DIR:
+        lock_dir = target_dir
+    else:
+        lock_dir = os.path.dirname(target_dir)
+    if (lock_dir and os.path.basename(lock_dir) == LEDGER_DIR
+            and os.path.isdir(lock_dir)):
+        fd, problem = _acquire_write_lock(lock_dir)
+        if problem:
+            holder = _write_lock_held_by(lock_dir)
+            return ("%s is locked by another writer (pid=%s); "
+                    "refusing to write %s" % (
+                        _write_lock_path(lock_dir),
+                        holder if holder is not None else "?",
+                        path))
+    else:
+        fd = None
     temp_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -208,7 +328,11 @@ def atomic_write_text(path, text):
                 os.unlink(temp_path)
             except OSError:
                 pass
+        if fd is not None:
+            _release_write_lock(lock_dir, fd)
         return "%s (%s)" % (path, exc.strerror or "cannot write")
+    if fd is not None:
+        _release_write_lock(lock_dir, fd)
     return None
 
 
@@ -5971,6 +6095,31 @@ def mode_info(book, json_flag=False, warnings_only=False,
             "tags_clean": sum(1 for c in manifest_map.values() if not c),
             "by_tag": manifest_map,
         }
+    # r164: lock state is independent of audit; we always
+    # compute it so a host that asks ``info --json`` sees
+    # whether the ledger is currently being written by
+    # another process, the way ``git status`` sees
+    # ``.git/index.lock``. Three states: ``free`` (no lock
+    # file), ``held_by_other`` (lock file present, holder
+    # PID is *not* ours), ``held_by_us`` (lock file is
+    # ours — the controller only ever holds it during a
+    # single ``atomic_write_text`` call, so seeing
+    # ``held_by_us`` in a host-driven report means a
+    # previous controller process crashed mid-write and
+    # left the lock behind; a human should clear it).
+    lock_path = _write_lock_path(LEDGER_DIR)
+    lock_holder = _write_lock_held_by(LEDGER_DIR)
+    if lock_holder is None:
+        lock_state = "free"
+    elif lock_holder == os.getpid():
+        lock_state = "held_by_us"
+    else:
+        lock_state = "held_by_other"
+    payload["lock_state"] = {
+        "state": lock_state,
+        "holder_pid": lock_holder,
+        "lock_path": os.path.abspath(lock_path),
+    }
     if human:
         # Borrowed from ``df -h`` / ``du -h`` / ``ls -lh`` /
         # ``git log --relative-date``: time spans render in

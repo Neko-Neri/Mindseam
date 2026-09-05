@@ -245,7 +245,7 @@ That keeps `.mindseam/` with the task rather than with the skill.
 <python-command> <skill-root>/scripts/mindseam.py seam --message "TICKET-101"           # attach a human annotation to the recorded row (like git commit -m / kubectl annotate)
 <python-command> <skill-root>/scripts/mindseam.py seam --from-stdin                   # read one next action per line from standard input (like kubectl apply -f - / xargs)
 <python-command> <skill-root>/scripts/mindseam.py info                                       # aggregate digest of the workspace state
-<python-command> <skill-root>/scripts/mindseam.py info --json                                # same digest, machine-readable JSON
+<python-command> <skill-root>/scripts/mindseam.py info --json                                # same digest, machine-readable JSON; carries lock_state so a host can see if another writer holds .mindseam/write.lock (like flock -n)
 <python-command> <skill-root>/scripts/mindseam.py info --warnings-only                     # print only the warning lines (like gh run list state failed)
 <python-command> <skill-root>/scripts/mindseam.py info --version                          # print the controller version on its own (like gh --version / kubectl version)
 <python-command> <skill-root>/scripts/mindseam.py info --human                           # render time spans in human units (like df -h / git log relative dates)
